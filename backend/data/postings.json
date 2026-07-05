@@ -1,0 +1,66 @@
+[
+  {
+    "id": "job-1",
+    "title": "AI Engineer",
+    "company": "TechNova Solutions",
+    "description": "Looking for an experienced AI Engineer to build scalable LLM applications and RAG pipelines using FastAPI and LangGraph. AWS experience is a plus.",
+    "url": "https://example.com/jobs/1",
+    "source": "LinkedIn"
+  },
+  {
+    "id": "job-2",
+    "title": "GenAI Engineer",
+    "company": "DataSphere AI",
+    "description": "Join our AI research team to develop generative models and integrate them into enterprise software. Requires Python, FastAPI, and strong background in LLMs.",
+    "url": "https://example.com/jobs/2",
+    "source": "Indeed"
+  },
+  {
+    "id": "job-3",
+    "title": "Python AI Developer",
+    "company": "Quantum Robotics",
+    "description": "Seeking a Python developer with focus on AI to work on real-time data processing. Experience with Kafka and AWS preferred.",
+    "url": "https://example.com/jobs/3",
+    "source": "Company Website"
+  },
+  {
+    "id": "job-4",
+    "title": "Full Stack AI Engineer",
+    "company": "InnovateML",
+    "description": "We need a Full Stack Engineer who can build robust backends with FastAPI and responsive frontends with React and TypeScript, while integrating AI features.",
+    "url": "https://example.com/jobs/4",
+    "source": "LinkedIn"
+  },
+  {
+    "id": "job-5",
+    "title": "LLM Engineer",
+    "company": "SyntaxAI",
+    "description": "Help us build the next generation of conversational AI. Strong knowledge of LangChain/LangGraph, RAG, and vector databases required.",
+    "url": "https://example.com/jobs/5",
+    "source": "Wellfound"
+  },
+  {
+    "id": "job-6",
+    "title": "Senior AI Systems Engineer",
+    "company": "CloudScale",
+    "description": "Architect and deploy scalable AI infrastructure on AWS. Strong experience with Python, Docker, and distributed event streaming like Kafka.",
+    "url": "https://example.com/jobs/6",
+    "source": "LinkedIn"
+  },
+  {
+    "id": "job-7",
+    "title": "AI Product Engineer",
+    "company": "NextGen Software",
+    "description": "Work closely with product teams to embed AI into our platform. Must know React, TypeScript, and how to interface with Python AI services (FastAPI).",
+    "url": "https://example.com/jobs/7",
+    "source": "Glassdoor"
+  },
+  {
+    "id": "job-8",
+    "title": "Machine Learning Engineer (RAG)",
+    "company": "KnowledgeBase Tech",
+    "description": "Specialized role focusing on improving our internal RAG systems. Minimum 3 years experience with productionizing ML models.",
+    "url": "https://example.com/jobs/8",
+    "source": "LinkedIn"
+  }
+]

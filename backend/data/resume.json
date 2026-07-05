@@ -1,0 +1,26 @@
+{
+  "title": "AI Engineer",
+  "years_experience": 3.9,
+  "skills": [
+    "FastAPI",
+    "LangGraph",
+    "Kafka",
+    "AWS",
+    "React",
+    "TypeScript",
+    "RAG",
+    "LLM"
+  ],
+  "projects": [
+    {
+      "name": "USAA Project",
+      "description": "Developed and deployed AI solutions for USAA.",
+      "technologies": ["Python", "FastAPI", "LLM", "AWS"]
+    },
+    {
+      "name": "Ryder Project",
+      "description": "Implemented RAG-based systems for Ryder operations.",
+      "technologies": ["Python", "LangGraph", "Kafka", "RAG"]
+    }
+  ]
+}

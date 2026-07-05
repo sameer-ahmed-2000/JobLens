@@ -1,0 +1,21 @@
+{
+  "NodeJS": "Node.js",
+  "Node JS": "Node.js",
+  "Node.JS": "Node.js",
+  "ReactJS": "React",
+  "React JS": "React",
+  "React.js": "React",
+  "Fast API": "FastAPI",
+  "Javascript": "JavaScript",
+  "JS": "JavaScript",
+  "Typescript": "TypeScript",
+  "TS": "TypeScript",
+  "Postgres": "PostgreSQL",
+  "Mongo": "MongoDB",
+  "NextJS": "Next.js",
+  "Next JS": "Next.js",
+  "Next.JS": "Next.js",
+  "VueJS": "Vue.js",
+  "Vue JS": "Vue.js",
+  "LangChain/LangGraph": "LangChain LangGraph"
+}
