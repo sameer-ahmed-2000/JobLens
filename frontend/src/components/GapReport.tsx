@@ -1,11 +1,13 @@
 import React from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { GapReport as GapReportType, ScoredPosting } from '../types';
+import { checkApplicationExists, saveApplication } from '../services/api';
 import { ConfidenceCard } from './ConfidenceCard';
 import { SkillBadge } from './SkillBadge';
 import { GapReportSkeleton } from './SkeletonLoader';
 import { ErrorBanner } from './ErrorBanner';
 import { EmptyState } from './EmptyState';
-import { BuildingIcon, ExternalLinkIcon, SparklesIcon } from './icons';
+import { BuildingIcon, ExternalLinkIcon, SparklesIcon, CheckCircleIcon } from './icons';
 
 interface GapReportProps {
   report?: GapReportType | null;
@@ -24,6 +26,27 @@ export const GapReport: React.FC<GapReportProps> = ({
   selectedPosting,
   onRetry,
 }) => {
+  const queryClient = useQueryClient();
+
+  // Check if saved
+  const { data: saveCheck } = useQuery({
+    queryKey: ['check_saved', selectedPosting?.posting.id],
+    queryFn: () => checkApplicationExists(selectedPosting!.posting.id),
+    enabled: !!selectedPosting?.posting.id,
+    staleTime: Infinity,
+  });
+
+  // Save mutation
+  const saveMutation = useMutation({
+    mutationFn: () => saveApplication(selectedPosting!.posting.id),
+    onSuccess: () => {
+      if (selectedPosting) {
+        queryClient.invalidateQueries({ queryKey: ['check_saved', selectedPosting.posting.id] });
+      }
+      queryClient.invalidateQueries({ queryKey: ['applications'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard_metrics'] });
+    },
+  });
   if (isLoading) {
     return <GapReportSkeleton />;
   }
@@ -80,16 +103,36 @@ export const GapReport: React.FC<GapReportProps> = ({
           </div>
         </div>
 
-        {selectedPosting?.posting.url && (
-          <button
-            type="button"
-            onClick={handleOpenOriginal}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-xs font-bold transition-colors shrink-0 self-start sm:self-center cursor-pointer focus:outline-none"
-          >
-            <span>Open Original Job</span>
-            <ExternalLinkIcon size={14} />
-          </button>
-        )}
+        <div className="flex items-center gap-3 shrink-0 self-start sm:self-center">
+          {selectedPosting?.posting.id && (
+            saveCheck?.exists ? (
+              <span className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-bold border border-emerald-100">
+                <CheckCircleIcon size={14} />
+                <span>Saved to Workspace</span>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => !saveMutation.isPending && saveMutation.mutate()}
+                disabled={saveMutation.isPending}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-indigo-700 rounded-xl text-xs font-bold transition-colors cursor-pointer focus:outline-none disabled:opacity-50"
+              >
+                <span>⭐ {saveMutation.isPending ? 'Saving...' : 'Save Job'}</span>
+              </button>
+            )
+          )}
+
+          {selectedPosting?.posting.url && (
+            <button
+              type="button"
+              onClick={handleOpenOriginal}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-xs font-bold transition-colors cursor-pointer focus:outline-none"
+            >
+              <span>Open Original Job</span>
+              <ExternalLinkIcon size={14} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Confidence Card (Refinement #5) */}

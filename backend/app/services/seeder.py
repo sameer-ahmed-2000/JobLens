@@ -2,6 +2,7 @@ import os
 import json
 import logging
 from app.repositories.uow import UnitOfWork
+from app.models.orm import JobSourceORM
 
 logger = logging.getLogger("seeder")
 
@@ -13,6 +14,7 @@ def seed_if_empty(uow_factory=UnitOfWork, force_reseed: bool = False) -> None:
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
     resume_path = os.path.join(base_dir, "data", "resume.json")
     postings_path = os.path.join(base_dir, "data", "postings.json")
+    sources_path = os.path.join(base_dir, "data", "job_sources.json")
 
     if not os.path.exists(resume_path) or not os.path.exists(postings_path):
         logger.warning("Seed data files missing. Skipping database seed.")
@@ -60,6 +62,21 @@ def seed_if_empty(uow_factory=UnitOfWork, force_reseed: bool = False) -> None:
                     company_id=comp["id"]
                 )
                 count += 1
+
+            # 4. Seed job sources if empty
+            if os.path.exists(sources_path):
+                existing_sources = uow.session.query(JobSourceORM).count()
+                if existing_sources == 0:
+                    with open(sources_path, "r", encoding="utf-8") as f:
+                        sources_data = json.load(f)
+                    for src in sources_data:
+                        src_obj = JobSourceORM(
+                            name=src.get("name", ""),
+                            url=src.get("url", ""),
+                            is_active=src.get("is_active", True)
+                        )
+                        uow.session.add(src_obj)
+                    logger.info(f"Seeded {len(sources_data)} job sources into JobSourceORM.")
 
             uow.commit()
             logger.info(f"Successfully seeded/updated {count} job postings in PostgreSQL.")

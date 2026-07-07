@@ -1,0 +1,11 @@
+[
+  {"name": "Greenhouse:openai", "url": "openai", "is_active": false},
+  {"name": "Greenhouse:anthropic", "url": "anthropic", "is_active": true},
+  {"name": "Greenhouse:stripe", "url": "stripe", "is_active": true},
+  {"name": "Lever:netflix", "url": "netflix", "is_active": true},
+  {"name": "Lever:spotify", "url": "spotify", "is_active": true},
+  {"name": "Lever:plaid", "url": "plaid", "is_active": true},
+  {"name": "Ashby:vercel", "url": "vercel", "is_active": true},
+  {"name": "Ashby:notion", "url": "notion", "is_active": true},
+  {"name": "Ashby:linear", "url": "linear", "is_active": true}
+]

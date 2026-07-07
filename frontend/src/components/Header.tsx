@@ -1,4 +1,5 @@
 import React from 'react';
+import { NavLink } from 'react-router-dom';
 import { SparklesIcon } from './icons';
 
 export const Header: React.FC = () => {
@@ -27,22 +28,32 @@ export const Header: React.FC = () => {
             </div>
           </div>
 
-          {/* Workflow Step Indicators */}
-          <div className="hidden lg:flex items-center bg-gray-50 border border-gray-200 rounded-full px-4 py-1.5 text-xs font-medium text-gray-600 shadow-2xs">
-            <span className="text-indigo-600 font-semibold flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              Resume
-            </span>
-            <span className="mx-2 text-gray-300">→</span>
-            <span className="text-indigo-600 font-semibold">Discover Jobs</span>
-            <span className="mx-2 text-gray-300">→</span>
-            <span className="text-indigo-600 font-semibold">Ranked Results</span>
-            <span className="mx-2 text-gray-300">→</span>
-            <span className="text-indigo-600 font-semibold">Click Job</span>
-            <span className="mx-2 text-gray-300">→</span>
-            <span className="bg-indigo-600 text-white px-2 py-0.5 rounded-full font-semibold">
-              Gap Report
-            </span>
+          {/* Navigation Tabs */}
+          <div className="flex items-center space-x-1 bg-gray-50 p-1 rounded-xl border border-gray-200">
+            <NavLink
+              to="/"
+              className={({ isActive }) =>
+                `px-4 py-2 text-sm font-bold rounded-lg transition-colors ${
+                  isActive
+                    ? 'bg-white text-indigo-700 shadow-sm border border-gray-200/60'
+                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+                }`
+              }
+            >
+              Discovery
+            </NavLink>
+            <NavLink
+              to="/workspace"
+              className={({ isActive }) =>
+                `px-4 py-2 text-sm font-bold rounded-lg transition-colors ${
+                  isActive
+                    ? 'bg-white text-indigo-700 shadow-sm border border-gray-200/60'
+                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+                }`
+              }
+            >
+              Workspace
+            </NavLink>
           </div>
 
         </div>

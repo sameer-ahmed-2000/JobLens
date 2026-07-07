@@ -112,8 +112,10 @@ class ApplicationORM(Base):
     id = Column(String, primary_key=True, default=generate_uuid)
     user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
     job_id = Column(String, ForeignKey("jobs.id"), nullable=False, index=True)
-    status = Column(String, default="Saved")  # Saved, Applied, Assessment, OA, Interview, Offer, Rejected
+    resume_id = Column(String, ForeignKey("resumes.id"), nullable=True, index=True)  # Resume snapshot for gap report versioning
+    status = Column(String, default="Saved")  # Saved, Applied, Assessment, OA, Interview, Offer, Rejected, Withdrawn
     notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = relationship("UserORM", back_populates="applications")
@@ -150,5 +152,23 @@ class InterviewNoteORM(Base):
     application_id = Column(String, ForeignKey("applications.id"), nullable=False, index=True)
     note = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, nullable=True, onupdate=datetime.utcnow)
 
     application = relationship("ApplicationORM", back_populates="notes_list")
+
+
+class IngestionRunORM(Base):
+    __tablename__ = "ingestion_runs"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    started_at = Column(DateTime, default=datetime.utcnow, index=True)
+    completed_at = Column(DateTime, nullable=True)
+    source = Column(String, nullable=False, index=True)
+    jobs_fetched = Column(Integer, default=0)
+    jobs_inserted = Column(Integer, default=0)
+    jobs_updated = Column(Integer, default=0)
+    duplicates_removed = Column(Integer, default=0)
+    failures = Column(Integer, default=0)
+    duration_ms = Column(Float, default=0.0)
+    status = Column(String, default="Running")  # Running, Success, Failed, Partial
+

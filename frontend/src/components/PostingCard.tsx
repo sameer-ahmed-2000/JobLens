@@ -1,7 +1,9 @@
 import React from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ScoredPosting } from '../types';
 import { formatPercentage, extractSkillChips, getScoreColorClass } from '../utils/helpers';
-import { BuildingIcon, ExternalLinkIcon } from './icons';
+import { checkApplicationExists, saveApplication } from '../services/api';
+import { BuildingIcon, ExternalLinkIcon, CheckCircleIcon } from './icons';
 
 interface PostingCardProps {
   scoredPosting: ScoredPosting;
@@ -16,10 +18,26 @@ export const PostingCard: React.FC<PostingCardProps> = ({
   onSelect,
   disabled = false,
 }) => {
+  const queryClient = useQueryClient();
   const { posting, overall_score, fit_rationale } = scoredPosting;
   const scoreClass = getScoreColorClass(overall_score);
   const formattedScore = formatPercentage(overall_score);
   const skillChips = extractSkillChips(fit_rationale, posting.title, posting.description);
+
+  const { data: saveCheck } = useQuery({
+    queryKey: ['check_saved', posting.id],
+    queryFn: () => checkApplicationExists(posting.id),
+    staleTime: Infinity,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: () => saveApplication(posting.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['check_saved', posting.id] });
+      queryClient.invalidateQueries({ queryKey: ['applications'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard_metrics'] });
+    },
+  });
 
   const handleCardClick = () => {
     if (!disabled) {
@@ -90,23 +108,45 @@ export const PostingCard: React.FC<PostingCardProps> = ({
         "{fit_rationale || 'Strong overall match based on skill alignment and experience.'}"
       </p>
 
-      {/* Bottom row: Status & Open Original Job link (Refinement #10) */}
+      {/* Bottom row: Status & Actions (Refinement #10) */}
       <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs font-medium">
         <span className={isSelected ? 'text-indigo-600 font-semibold' : 'text-gray-400'}>
           {isSelected ? '● Active Selection' : 'Click to analyze gaps'}
         </span>
 
-        {posting.url && (
-          <button
-            type="button"
-            onClick={handleOpenJob}
-            className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 hover:underline font-semibold focus:outline-none"
-            title="Open original job posting in new tab"
-          >
-            <span>Open Job</span>
-            <ExternalLinkIcon size={12} />
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {saveCheck?.exists ? (
+            <span className="inline-flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+              <CheckCircleIcon size={12} />
+              Saved
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!saveMutation.isPending) saveMutation.mutate();
+              }}
+              disabled={saveMutation.isPending}
+              className="inline-flex items-center gap-1 text-gray-500 hover:text-indigo-600 font-semibold transition-colors disabled:opacity-50 focus:outline-none"
+              title="Save to Workspace"
+            >
+              ⭐ {saveMutation.isPending ? 'Saving...' : 'Save'}
+            </button>
+          )}
+
+          {posting.url && (
+            <button
+              type="button"
+              onClick={handleOpenJob}
+              className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 hover:underline font-semibold focus:outline-none"
+              title="Open original job posting in new tab"
+            >
+              <span>Open Job</span>
+              <ExternalLinkIcon size={12} />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

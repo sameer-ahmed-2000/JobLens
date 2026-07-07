@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Header } from './components/Header';
 import Dashboard from './pages/Dashboard';
+import CareerWorkspace from './pages/CareerWorkspace';
 
 const queryClient = new QueryClient();
 
@@ -14,6 +15,7 @@ function App() {
           <main className="flex-1 max-w-7xl w-full mx-auto py-6 px-4 sm:px-6 lg:px-8">
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/workspace" element={<CareerWorkspace />} />
             </Routes>
           </main>
         </div>

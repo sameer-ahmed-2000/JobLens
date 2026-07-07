@@ -53,3 +53,55 @@ export interface QuickStatsData {
   avgMatch: number;
   missingSkillsCount: number;
 }
+
+export type ApplicationStatus =
+  | 'Saved'
+  | 'Applied'
+  | 'Assessment'
+  | 'Online Assessment'
+  | 'Technical Interview'
+  | 'Manager Interview'
+  | 'HR Interview'
+  | 'Offer'
+  | 'Rejected'
+  | 'Withdrawn';
+
+export interface Application {
+  id: string;
+  user_id: string;
+  job_id: string;
+  resume_id?: string;
+  job_title: string;
+  company: string;
+  job_url?: string;
+  status: ApplicationStatus;
+  notes?: string;
+  match_score?: number;
+  confidence_score?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InterviewNote {
+  id: string;
+  application_id: string;
+  content: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface DashboardMetrics {
+  saved: number;
+  applied: number;
+  assessments: number;
+  interviews: number;
+  offers: number;
+  rejected: number;
+  withdrawn: number;
+  total: number;
+  success_rate: number;
+  average_match_score: number;
+  average_confidence: number;
+  avg_days_in_pipeline: number;
+}
+

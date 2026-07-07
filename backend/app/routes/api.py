@@ -34,3 +34,31 @@ async def generate_gap_report(request: GapReportRequest):
     """
     return await gap_service.analyze_gap(request)
 
+
+@router.get("/ingestion/status")
+async def get_ingestion_status():
+    """
+    Returns diagnostic operational status of the latest ingestion runs and embedding queue size.
+    """
+    from app.repositories.uow import UnitOfWork
+    from app.services.ingestion.queue import embedding_queue
+    with UnitOfWork() as uow:
+        latest_runs = uow.ingestion_runs.get_latest(limit=5)
+    return {
+        "runs": latest_runs,
+        "queue_size": embedding_queue.size()
+    }
+
+
+@router.get("/scheduler/status")
+async def get_scheduler_status():
+    """
+    Returns diagnostic status of the independent job scheduler and embedding worker queue.
+    """
+    from app.services.job_scheduler import job_scheduler
+    from app.services.ingestion.queue import embedding_queue
+    status_data = job_scheduler.get_status()
+    status_data["queue_size"] = embedding_queue.size()
+    return status_data
+
+
