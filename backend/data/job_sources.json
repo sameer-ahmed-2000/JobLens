@@ -7,5 +7,8 @@
   {"name": "Lever:plaid", "url": "plaid", "is_active": true},
   {"name": "Ashby:vercel", "url": "vercel", "is_active": true},
   {"name": "Ashby:notion", "url": "notion", "is_active": true},
-  {"name": "Ashby:linear", "url": "linear", "is_active": true}
+  {"name": "Ashby:linear", "url": "linear", "is_active": true},
+  {"name": "Adzuna:search", "url": "aggregator", "is_active": true},
+  {"name": "Remotive:search", "url": "aggregator", "is_active": true},
+  {"name": "Arbeitnow:search", "url": "aggregator", "is_active": true}
 ]

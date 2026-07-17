@@ -63,20 +63,29 @@ def seed_if_empty(uow_factory=UnitOfWork, force_reseed: bool = False) -> None:
                 )
                 count += 1
 
-            # 4. Seed job sources if empty
+            # 4. Seed job sources; add any new ones from the file without touching
+            # existing rows, so upgrading job_sources.json (e.g. adding new
+            # aggregator sources) takes effect even on an already-seeded DB.
             if os.path.exists(sources_path):
-                existing_sources = uow.session.query(JobSourceORM).count()
-                if existing_sources == 0:
-                    with open(sources_path, "r", encoding="utf-8") as f:
-                        sources_data = json.load(f)
-                    for src in sources_data:
+                with open(sources_path, "r", encoding="utf-8") as f:
+                    sources_data = json.load(f)
+
+                existing_names = {
+                    row[0] for row in uow.session.query(JobSourceORM.name).all()
+                }
+                added = 0
+                for src in sources_data:
+                    name = src.get("name", "")
+                    if name and name not in existing_names:
                         src_obj = JobSourceORM(
-                            name=src.get("name", ""),
+                            name=name,
                             url=src.get("url", ""),
                             is_active=src.get("is_active", True)
                         )
                         uow.session.add(src_obj)
-                    logger.info(f"Seeded {len(sources_data)} job sources into JobSourceORM.")
+                        added += 1
+                if added:
+                    logger.info(f"Seeded {added} new job source(s) into JobSourceORM.")
 
             uow.commit()
             logger.info(f"Successfully seeded/updated {count} job postings in PostgreSQL.")

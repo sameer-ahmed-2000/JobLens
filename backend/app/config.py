@@ -26,4 +26,18 @@ class Settings(BaseModel):
     top_n_rationales: int = int(os.getenv("TOP_N_RATIONALES", "10"))
     database_url: str = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/joblens")
 
+    # Real-time, resume-driven aggregator sources
+    adzuna_app_id: str = os.getenv("ADZUNA_APP_ID", "")
+    adzuna_app_key: str = os.getenv("ADZUNA_APP_KEY", "")
+    adzuna_country: str = os.getenv("ADZUNA_COUNTRY", "in")  # ISO country code, e.g. "in", "us", "gb"
+    default_location: str = os.getenv("DEFAULT_JOB_LOCATION", "")  # e.g. "Chennai" or "" for no filter
+
+    adzuna_enabled: bool = os.getenv("ADZUNA_ENABLED", "true").lower() == "true"
+    remotive_enabled: bool = os.getenv("REMOTIVE_ENABLED", "true").lower() == "true"
+    arbeitnow_enabled: bool = os.getenv("ARBEITNOW_ENABLED", "true").lower() == "true"
+
+    # Minimum minutes between resume-driven live searches, to avoid hammering
+    # free-tier aggregator APIs on every /discover call.
+    live_search_min_interval_minutes: int = int(os.getenv("LIVE_SEARCH_MIN_INTERVAL_MINUTES", "15"))
+
 settings = Settings()

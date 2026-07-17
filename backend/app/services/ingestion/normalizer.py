@@ -37,6 +37,28 @@ def normalize_job(raw_item: Dict[str, Any], source_type: str, board: str) -> Opt
             else:
                 description = strip_html(raw_item.get("descriptionHtml", "")).strip()
             company = board.capitalize()
+
+        elif source_type.lower() == "adzuna":
+            job_id = f"adz-{raw_item.get('id')}"
+            title = raw_item.get("title", "")
+            url = raw_item.get("redirect_url", "")
+            # Adzuna's free tier only returns a snippet of the description
+            description = strip_html(raw_item.get("description", "")).strip()
+            company = (raw_item.get("company") or {}).get("display_name", "Unknown") or "Unknown"
+
+        elif source_type.lower() == "remotive":
+            job_id = f"rmt-{raw_item.get('id')}"
+            title = raw_item.get("title", "")
+            url = raw_item.get("url", "")
+            description = strip_html(raw_item.get("description", "")).strip()
+            company = raw_item.get("company_name", "Unknown") or "Unknown"
+
+        elif source_type.lower() == "arbeitnow":
+            job_id = f"arb-{raw_item.get('slug') or raw_item.get('url', '')}"
+            title = raw_item.get("title", "")
+            url = raw_item.get("url", "")
+            description = strip_html(raw_item.get("description", "")).strip()
+            company = raw_item.get("company_name", "Unknown") or "Unknown"
         else:
             logger.warning(f"Unknown source_type '{source_type}' during normalization.")
             return None

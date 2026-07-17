@@ -15,6 +15,7 @@ class JobScheduler:
         self._thread: Optional[threading.Thread] = None
         self.last_run: Optional[datetime] = None
         self.last_stats: Dict[str, Any] = {}
+        self.last_live_search: Optional[datetime] = None
 
     def start(self, run_immediately: bool = True) -> None:
         if self._running:
@@ -34,6 +35,28 @@ class JobScheduler:
         """Manually trigger ingestion pipeline execution."""
         logger.info("Manually triggering live job ingestion pipeline...")
         self.last_run = datetime.utcnow()
+        stats = run_ingestion_pipeline(keywords=keywords, location=location)
+        self.last_stats = stats
+        return stats
+
+    def trigger_live_search(self, keywords: List[str], location: Optional[str] = None, force: bool = False) -> Dict[str, Any]:
+        """
+        Resume-driven real-time search against aggregator sources (Adzuna/Remotive/Arbeitnow).
+        Debounced by `live_search_min_interval_minutes` so a burst of /discover
+        calls doesn't hammer free-tier external APIs; pass force=True to bypass.
+        """
+        min_interval = getattr(settings, "live_search_min_interval_minutes", 15)
+        if not force and self.last_live_search is not None:
+            elapsed_minutes = (datetime.utcnow() - self.last_live_search).total_seconds() / 60.0
+            if elapsed_minutes < min_interval:
+                logger.info(
+                    f"Skipping live search: last run {elapsed_minutes:.1f} min ago "
+                    f"(min interval {min_interval} min)."
+                )
+                return {"status": "skipped_debounce", "minutes_since_last": round(elapsed_minutes, 1)}
+
+        logger.info(f"Triggering resume-driven live search with keywords={keywords}, location={location}...")
+        self.last_live_search = datetime.utcnow()
         stats = run_ingestion_pipeline(keywords=keywords, location=location)
         self.last_stats = stats
         return stats
@@ -64,6 +87,7 @@ class JobScheduler:
             "status": "running" if self._running else "stopped",
             "interval_minutes": self.interval_minutes,
             "last_run": self.last_run.isoformat() if self.last_run else None,
+            "last_live_search": self.last_live_search.isoformat() if self.last_live_search else None,
             "last_stats": self.last_stats
         }
 

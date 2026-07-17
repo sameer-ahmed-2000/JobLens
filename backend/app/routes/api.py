@@ -20,10 +20,23 @@ async def get_postings():
     return await discovery_service.get_ranked_postings()
 
 @router.post("/discover", response_model=List[ScoredPosting])
-async def trigger_discovery():
+async def trigger_discovery(force_live_search: bool = False):
     """
-    Triggers the discovery pipeline (LangGraph) to find, score, and rank jobs.
+    Triggers the discovery pipeline: first runs a resume-driven real-time
+    search against aggregator sources (Adzuna/Remotive/Arbeitnow) using
+    keywords derived from the active resume, then scores and ranks the
+    combined pool (ATS boards + live aggregator results) via LangGraph.
+
+    `force_live_search=true` bypasses the debounce window (useful for a
+    manual "search now" button in the UI).
     """
+    from app.services.resume_index import resume_index
+    from app.services.job_scheduler import job_scheduler
+
+    keywords = resume_index.get_search_keywords()
+    if keywords:
+        job_scheduler.trigger_live_search(keywords=keywords, force=force_live_search)
+
     return await discovery_service.get_ranked_postings()
 
 

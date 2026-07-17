@@ -104,6 +104,29 @@ class ResumeIndex(IResumeIndex):
     def add_resume(self, resume_id: str, skills: List[str], experience: str) -> bool:
         return True
 
+    def get_search_keywords(self, max_keywords: int = 6) -> List[str]:
+        """
+        Derive real-time job search keywords from the active resume.
+        Returns the target title (if present) plus the top N skills, in
+        resume order, for use as query terms against aggregator APIs
+        (Adzuna/Remotive/Arbeitnow) and as a post-fetch relevance filter.
+        """
+        data = self.get_resume_data() or {}
+        keywords: List[str] = []
+
+        title = (data.get("title") or "").strip()
+        if title:
+            keywords.append(title)
+
+        for skill in data.get("skills", []):
+            skill = (skill or "").strip()
+            if skill and skill not in keywords:
+                keywords.append(skill)
+            if len(keywords) >= max_keywords:
+                break
+
+        return keywords[:max_keywords]
+
     def search_skills(self, required_skills: List[str], top_k: int = 5) -> List[Dict[str, Any]]:
         return []
 

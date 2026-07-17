@@ -5,7 +5,11 @@ from typing import List, Dict, Any, Optional
 from app.config import settings
 from app.repositories.uow import UnitOfWork
 from app.services.ingestion.source_registry import SourceRegistry
-from app.services.ingestion.connectors import GreenhouseConnector, LeverConnector, AshbyConnector, ConnectorResultV1
+from app.services.ingestion.connectors import (
+    GreenhouseConnector, LeverConnector, AshbyConnector,
+    AdzunaConnector, RemotiveConnector, ArbeitnowConnector,
+    ConnectorResultV1
+)
 from app.services.ingestion.normalizer import normalize_job
 from app.services.ingestion.queue import embedding_queue
 from app.nodes.normalize import normalize_text
@@ -27,8 +31,15 @@ def run_ingestion_pipeline(keywords: Optional[List[str]] = None, location: Optio
     connectors_map = {
         "greenhouse": GreenhouseConnector(),
         "lever": LeverConnector(),
-        "ashby": AshbyConnector()
+        "ashby": AshbyConnector(),
+        "adzuna": AdzunaConnector(),
+        "remotive": RemotiveConnector(),
+        "arbeitnow": ArbeitnowConnector()
     }
+
+    # Aggregator sources are keyword/location-driven rather than fixed-board,
+    # so they need the resume-derived query injected into their source_config.
+    AGGREGATOR_TYPES = {"adzuna", "remotive", "arbeitnow"}
 
     # Global deduplication trackers across all sources in this run
     seen_urls = set()
@@ -60,6 +71,13 @@ def run_ingestion_pipeline(keywords: Optional[List[str]] = None, location: Optio
             continue
         if source_type == "ashby" and not getattr(settings, "ashby_enabled", True):
             continue
+        if source_type in AGGREGATOR_TYPES and not getattr(settings, f"{source_type}_enabled", True):
+            continue
+        # Aggregator sources without any resume-derived keywords aren't worth
+        # querying (they'd just return an unfiltered generic feed each run).
+        if source_type in AGGREGATOR_TYPES and not keywords:
+            logger.info(f"Skipping aggregator source '{src['name']}': no keywords supplied.")
+            continue
 
         connector = connectors_map.get(source_type)
         if not connector:
@@ -73,7 +91,10 @@ def run_ingestion_pipeline(keywords: Optional[List[str]] = None, location: Optio
             run_id = run_rec["id"]
 
         logger.info(f"Executing connector for {src['name']}...")
-        res: ConnectorResultV1 = connector.fetch(src)
+        fetch_config = src
+        if source_type in AGGREGATOR_TYPES:
+            fetch_config = {**src, "keywords": keywords, "location": location}
+        res: ConnectorResultV1 = connector.fetch(fetch_config)
 
         inserted = 0
         updated = 0
