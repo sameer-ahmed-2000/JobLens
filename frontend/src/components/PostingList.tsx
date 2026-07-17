@@ -14,6 +14,7 @@ interface PostingListProps {
   selectedPosting: ScoredPosting | null;
   onSelectPosting: (posting: ScoredPosting) => void;
   isGeneratingReport?: boolean;
+  newMatchIds?: string[];
 }
 
 export const PostingList: React.FC<PostingListProps> = ({
@@ -25,6 +26,7 @@ export const PostingList: React.FC<PostingListProps> = ({
   selectedPosting,
   onSelectPosting,
   isGeneratingReport = false,
+  newMatchIds = [],
 }) => {
   if (isLoading) {
     return <PostingListSkeleton />;
@@ -48,6 +50,7 @@ export const PostingList: React.FC<PostingListProps> = ({
     <div className="space-y-3.5 max-h-[800px] overflow-y-auto pr-1">
       {postings.map((scoredPosting) => {
         const isSelected = selectedPosting?.posting.id === scoredPosting.posting.id;
+        const isHighlighted = newMatchIds.includes(scoredPosting.id);
         return (
           <PostingCard
             key={scoredPosting.posting.id || scoredPosting.posting.title}
@@ -55,6 +58,7 @@ export const PostingList: React.FC<PostingListProps> = ({
             isSelected={isSelected}
             onSelect={onSelectPosting}
             disabled={isGeneratingReport && isSelected}
+            isHighlighted={isHighlighted}
           />
         );
       })}

@@ -10,16 +10,15 @@ from app.repositories.uow import UnitOfWork
 logger = logging.getLogger("gap_service")
 
 class GapService:
-    async def analyze_gap(self, request: GapReportRequest) -> GapReport:
+    async def analyze_gap(self, request: GapReportRequest, user_id: str = "default-user-id") -> GapReport:
         """Execute the LangGraph Gap Analyzer workflow and return a structured GapReport."""
-        logger.info("Gap Analysis Started")
+        logger.info(f"Gap Analysis Started for user: {user_id}")
         t0 = time.perf_counter()
 
         jd_text: Optional[str] = request.jd_text or request.job_description
         job_title = "Target Role"
         company = "Target Company"
         matched_job_id: Optional[str] = None
-        user_id = "default-user-id"
         resume_ver = 1
 
         if request.posting_url:
@@ -78,7 +77,8 @@ class GapService:
             state_input = {
                 "jd_text": jd_text,
                 "job_title": job_title,
-                "company": company
+                "company": company,
+                "user_id": user_id
             }
             state = gap_graph.invoke(state_input)
         except FileNotFoundError as e:

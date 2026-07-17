@@ -38,9 +38,6 @@ export const Timeline: React.FC<TimelineProps> = ({ application }) => {
         const isPast = index < currentIndex;
         const isCurrent = index === currentIndex;
         
-        // If rejected/withdrawn, we grey out future steps
-        const isFuture = index > currentIndex || isRejectedOrWithdrawn;
-
         let dotColor = 'bg-gray-200 border-gray-200';
         let textColor = 'text-gray-400';
         let detailText = '';

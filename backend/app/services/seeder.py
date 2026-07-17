@@ -1,8 +1,9 @@
 import os
 import json
 import logging
+import hashlib
 from app.repositories.uow import UnitOfWork
-from app.models.orm import JobSourceORM
+from app.models.orm import JobSourceORM, UserORM
 
 logger = logging.getLogger("seeder")
 
@@ -25,9 +26,22 @@ def seed_if_empty(uow_factory=UnitOfWork, force_reseed: bool = False) -> None:
         with uow_factory() as uow:
             # 1. Seed default user
             user = uow.users.get_by_email("user@joblens.ai")
+            raw_token = "default-user-token"
+            token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
             if not user:
-                user = uow.users.create(name="Demo User", email="user@joblens.ai", user_id="default-user-id")
-                logger.info("Created default user.")
+                user = uow.users.create(
+                    name="Demo User",
+                    email="user@joblens.ai",
+                    user_id="default-user-id",
+                    token_hash=token_hash
+                )
+                logger.info(f"Created default user with API token: {raw_token}")
+            else:
+                if not user.get("token_hash"):
+                    user_orm = uow.session.query(UserORM).filter(UserORM.id == user["id"]).first()
+                    if user_orm:
+                        user_orm.token_hash = token_hash
+                        logger.info("Updated existing default user with API token hash.")
 
             # 2. Seed resume
             with open(resume_path, "r", encoding="utf-8") as f:

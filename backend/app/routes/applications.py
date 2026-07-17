@@ -1,19 +1,16 @@
 """
 Career Workspace — Applications & Interview Notes API
-
-All endpoints implicitly operate on the default user (single-user MVP).
-Multi-user support is deferred to Phase 9.
 """
 import logging
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel
 from app.repositories.uow import UnitOfWork
+from app.routes.auth import get_current_user_id
+from app.models.orm import InterviewNoteORM
 
 logger = logging.getLogger("applications_api")
 router = APIRouter()
-
-DEFAULT_USER_ID = "default-user-id"
 
 
 # ─────────────────────────────────────────────────────────
@@ -41,21 +38,21 @@ class UpdateNoteRequest(BaseModel):
 # ─────────────────────────────────────────────────────────
 
 @router.get("/applications")
-def list_applications():
-    """Return all applications for the default user, enriched with job + score data."""
+def list_applications(current_user_id: str = Depends(get_current_user_id)):
+    """Return all applications for the current user, enriched with job + score data."""
     with UnitOfWork() as uow:
-        return uow.applications.list_applications(DEFAULT_USER_ID)
+        return uow.applications.list_applications(current_user_id)
 
 
 @router.post("/applications", status_code=status.HTTP_201_CREATED)
-def save_application(req: SaveApplicationRequest):
+def save_application(req: SaveApplicationRequest, current_user_id: str = Depends(get_current_user_id)):
     """
-    Save a job to the application tracker.
+    Save a job to the application tracker for the current user.
     Returns 409 if already saved.
     """
     with UnitOfWork() as uow:
         # Check for duplicate
-        if uow.applications.application_exists(DEFAULT_USER_ID, req.job_id):
+        if uow.applications.application_exists(current_user_id, req.job_id):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Application already exists for this job.",
@@ -64,7 +61,7 @@ def save_application(req: SaveApplicationRequest):
         # Capture the current resume_id for snapshot
         resume_id: Optional[str] = None
         try:
-            res = uow.resumes.get_by_user_id(DEFAULT_USER_ID)
+            res = uow.resumes.get_by_user_id(current_user_id)
             if res:
                 resume_id = res.get("id")
         except Exception:
@@ -72,7 +69,7 @@ def save_application(req: SaveApplicationRequest):
 
         try:
             app = uow.applications.save_application(
-                user_id=DEFAULT_USER_ID,
+                user_id=current_user_id,
                 job_id=req.job_id,
                 resume_id=resume_id,
             )
@@ -86,9 +83,13 @@ def save_application(req: SaveApplicationRequest):
 
 
 @router.patch("/applications/{app_id}")
-def update_application_status(app_id: str, req: UpdateStatusRequest):
-    """Update the status of an application."""
+def update_application_status(app_id: str, req: UpdateStatusRequest, current_user_id: str = Depends(get_current_user_id)):
+    """Update the status of an application after verifying ownership."""
     with UnitOfWork() as uow:
+        app = uow.applications.get_application(app_id)
+        if not app or app["user_id"] != current_user_id:
+            raise HTTPException(status_code=404, detail="Application not found.")
+
         try:
             result = uow.applications.update_status(app_id, req.status)
         except ValueError as e:
@@ -102,9 +103,13 @@ def update_application_status(app_id: str, req: UpdateStatusRequest):
 
 
 @router.delete("/applications/{app_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_application(app_id: str):
-    """Permanently delete an application and all its notes."""
+def delete_application(app_id: str, current_user_id: str = Depends(get_current_user_id)):
+    """Permanently delete an application and all its notes after verifying ownership."""
     with UnitOfWork() as uow:
+        app = uow.applications.get_application(app_id)
+        if not app or app["user_id"] != current_user_id:
+            raise HTTPException(status_code=404, detail="Application not found.")
+
         deleted = uow.applications.delete_application(app_id)
         if not deleted:
             raise HTTPException(status_code=404, detail="Application not found.")
@@ -112,11 +117,11 @@ def delete_application(app_id: str):
 
 
 @router.get("/applications/{app_id}")
-def get_application(app_id: str):
-    """Get a single application by ID."""
+def get_application(app_id: str, current_user_id: str = Depends(get_current_user_id)):
+    """Get a single application by ID after verifying ownership."""
     with UnitOfWork() as uow:
         app = uow.applications.get_application(app_id)
-        if not app:
+        if not app or app["user_id"] != current_user_id:
             raise HTTPException(status_code=404, detail="Application not found.")
         return app
 
@@ -126,10 +131,10 @@ def get_application(app_id: str):
 # ─────────────────────────────────────────────────────────
 
 @router.get("/applications/check/{job_id}")
-def check_application_exists(job_id: str):
+def check_application_exists(job_id: str, current_user_id: str = Depends(get_current_user_id)):
     """Returns whether a job is already saved, and the application if so."""
     with UnitOfWork() as uow:
-        app = uow.applications.get_by_job(DEFAULT_USER_ID, job_id)
+        app = uow.applications.get_by_job(current_user_id, job_id)
         return {"exists": app is not None, "application": app}
 
 
@@ -138,22 +143,21 @@ def check_application_exists(job_id: str):
 # ─────────────────────────────────────────────────────────
 
 @router.get("/applications/{app_id}/notes")
-def get_notes(app_id: str):
-    """List all interview notes for an application."""
+def get_notes(app_id: str, current_user_id: str = Depends(get_current_user_id)):
+    """List all interview notes for an application after verifying ownership."""
     with UnitOfWork() as uow:
-        # Verify application exists and belongs to default user
         app = uow.applications.get_application(app_id)
-        if not app:
+        if not app or app["user_id"] != current_user_id:
             raise HTTPException(status_code=404, detail="Application not found.")
         return uow.interview_notes.get_notes(app_id)
 
 
 @router.post("/applications/{app_id}/notes", status_code=status.HTTP_201_CREATED)
-def add_note(app_id: str, req: AddNoteRequest):
-    """Add an interview note to an application."""
+def add_note(app_id: str, req: AddNoteRequest, current_user_id: str = Depends(get_current_user_id)):
+    """Add an interview note to an application after verifying ownership."""
     with UnitOfWork() as uow:
         app = uow.applications.get_application(app_id)
-        if not app:
+        if not app or app["user_id"] != current_user_id:
             raise HTTPException(status_code=404, detail="Application not found.")
         if not req.content or not req.content.strip():
             raise HTTPException(status_code=400, detail="Note content cannot be empty.")
@@ -163,22 +167,35 @@ def add_note(app_id: str, req: AddNoteRequest):
 
 
 @router.patch("/notes/{note_id}")
-def update_note(note_id: str, req: UpdateNoteRequest):
-    """Edit an interview note."""
+def update_note(note_id: str, req: UpdateNoteRequest, current_user_id: str = Depends(get_current_user_id)):
+    """Edit an interview note after verifying ownership of the parent application."""
     with UnitOfWork() as uow:
-        if not req.content or not req.content.strip():
-            raise HTTPException(status_code=400, detail="Note content cannot be empty.")
-        note = uow.interview_notes.update_note(note_id, req.content.strip())
+        note = uow.session.query(InterviewNoteORM).filter(InterviewNoteORM.id == note_id).first()
         if not note:
             raise HTTPException(status_code=404, detail="Note not found.")
+        app = uow.applications.get_application(note.application_id)
+        if not app or app["user_id"] != current_user_id:
+            raise HTTPException(status_code=404, detail="Note not found.")
+
+        if not req.content or not req.content.strip():
+            raise HTTPException(status_code=400, detail="Note content cannot be empty.")
+        
+        updated_note = uow.interview_notes.update_note(note_id, req.content.strip())
         uow.commit()
-        return note
+        return updated_note
 
 
 @router.delete("/notes/{note_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_note(note_id: str):
-    """Delete an interview note."""
+def delete_note(note_id: str, current_user_id: str = Depends(get_current_user_id)):
+    """Delete an interview note after verifying ownership of the parent application."""
     with UnitOfWork() as uow:
+        note = uow.session.query(InterviewNoteORM).filter(InterviewNoteORM.id == note_id).first()
+        if not note:
+            raise HTTPException(status_code=404, detail="Note not found.")
+        app = uow.applications.get_application(note.application_id)
+        if not app or app["user_id"] != current_user_id:
+            raise HTTPException(status_code=404, detail="Note not found.")
+
         deleted = uow.interview_notes.delete_note(note_id)
         if not deleted:
             raise HTTPException(status_code=404, detail="Note not found.")

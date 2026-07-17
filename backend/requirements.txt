@@ -12,3 +12,4 @@ orjson
 sqlalchemy
 alembic
 psycopg2-binary
+redis>=5.0

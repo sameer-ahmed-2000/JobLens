@@ -98,7 +98,18 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s - %(message)s")
     logger.info("Starting standalone JobScheduler process...")
     from app.services.ingestion.embedding_worker import embedding_worker
+    from app.services.ingestion.scoring_worker import scoring_worker
+    from app.notifier import Notifier
+    import threading
+
     embedding_worker.start()
+    scoring_worker.start()
+    
+    # Start the Notifier Subscriber in a background thread
+    notifier_instance = Notifier()
+    notifier_thread = threading.Thread(target=notifier_instance.start, daemon=True, name="NotifierProcessThread")
+    notifier_thread.start()
+
     job_scheduler.start(run_immediately=True)
     try:
         while True:
@@ -106,4 +117,6 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         logger.info("Keyboard interrupt received. Shutting down standalone scheduler...")
         job_scheduler.stop()
+        scoring_worker.stop()
         embedding_worker.stop()
+        notifier_instance.stop()

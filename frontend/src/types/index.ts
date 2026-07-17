@@ -8,9 +8,11 @@ export interface RawPosting {
 }
 
 export interface ScoredPosting {
+  id: string;
   posting: RawPosting;
   overall_score: number;
   fit_rationale: string;
+  status?: string;
 }
 
 export interface SkillGap {
@@ -103,5 +105,14 @@ export interface DashboardMetrics {
   average_match_score: number;
   average_confidence: number;
   avg_days_in_pipeline: number;
+}
+
+export interface UserProfile {
+  id: string;
+  name: string;
+  email: string;
+  whatsapp_number?: string;
+  notify_threshold: number;
+  display_threshold: number;
 }
 

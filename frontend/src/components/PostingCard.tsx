@@ -10,6 +10,7 @@ interface PostingCardProps {
   isSelected: boolean;
   onSelect: (posting: ScoredPosting) => void;
   disabled?: boolean;
+  isHighlighted?: boolean;
 }
 
 export const PostingCard: React.FC<PostingCardProps> = ({
@@ -17,6 +18,7 @@ export const PostingCard: React.FC<PostingCardProps> = ({
   isSelected,
   onSelect,
   disabled = false,
+  isHighlighted = false,
 }) => {
   const queryClient = useQueryClient();
   const { posting, overall_score, fit_rationale } = scoredPosting;
@@ -56,9 +58,11 @@ export const PostingCard: React.FC<PostingCardProps> = ({
     <div
       onClick={handleCardClick}
       className={`p-5 rounded-xl border text-left transition-all duration-150 cursor-pointer ${
-        isSelected
-          ? 'bg-indigo-50/60 border-indigo-500 shadow-md ring-2 ring-indigo-500/20'
-          : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-md'
+        isHighlighted
+          ? 'animate-pulse-highlight border-indigo-500 shadow-md ring-2 ring-indigo-500/20'
+          : isSelected
+            ? 'bg-indigo-50/60 border-indigo-500 shadow-md ring-2 ring-indigo-500/20'
+            : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-md'
       } ${disabled ? 'opacity-70 cursor-not-allowed' : ''}`}
     >
       {/* Top row: Title, Company, Score Badge */}

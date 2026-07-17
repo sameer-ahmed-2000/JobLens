@@ -133,6 +133,91 @@ def test_gap_integration():
     logger.info("=== Test 5 Passed: Gap report caching and retrieval from DB verified! ===\n")
 
 
+def test_active_resume_db_constraint():
+    logger.info("=== Starting Test 6: Database-Level One Active Resume Constraint ===")
+    from sqlalchemy.exc import IntegrityError
+    
+    with TestUnitOfWork() as uow:
+        user = uow.users.create(name="Constraint User", email="constraint@joblens.ai", user_id="user-constraint")
+        uow.commit()
+
+    with TestUnitOfWork() as uow:
+        uow.resumes.upsert_resume(
+            user_id="user-constraint",
+            title="AI Engineer",
+            years_experience=3.0,
+            skills=["Python"],
+            projects=[],
+            resume_id="res-active-1"
+        )
+        uow.commit()
+
+    from app.models.orm import ResumeORM
+    with TestUnitOfWork() as uow:
+        res2 = ResumeORM(
+            id="res-active-2",
+            user_id="user-constraint",
+            raw_text="Different text",
+            parsed_skills=["Python"],
+            embedding=[0.0] * 384,
+            is_active=True
+        )
+        uow.session.add(res2)
+        try:
+            uow.commit()
+            raise AssertionError("IntegrityError was not raised for multiple active resumes!")
+        except IntegrityError:
+            uow.rollback()
+            logger.info("IntegrityError successfully raised on duplicate active resumes.")
+            
+    logger.info("=== Test 6 Passed: Database-level one-active-resume constraint verified! ===\n")
+
+
+def test_match_status_preservation():
+    logger.info("=== Starting Test 7: Job Match Status Preservation ===")
+    with TestUnitOfWork() as uow:
+        user = uow.users.create(name="Scoring User", email="scoring@joblens.ai", user_id="user-scoring")
+        job = uow.jobs.upsert(
+            title="FastAPI Expert",
+            company_name="FastAPI Inc",
+            description="API building",
+            url="https://fastapi.org/jobs/1",
+            job_id="job-scoring"
+        )
+        uow.commit()
+
+    with TestUnitOfWork() as uow:
+        match1 = uow.job_matches.upsert_match(
+            user_id="user-scoring",
+            job_id="job-scoring",
+            score=0.85,
+            rationale="Initial fit rationale."
+        )
+        uow.commit()
+        assert match1["status"] == "new"
+        assert match1["score"] == 0.85
+
+    with TestUnitOfWork() as uow:
+        from app.models.orm import JobMatchORM
+        match_orm = uow.session.query(JobMatchORM).filter_by(user_id="user-scoring", job_id="job-scoring").first()
+        match_orm.status = "applied"
+        uow.commit()
+
+    with TestUnitOfWork() as uow:
+        match2 = uow.job_matches.upsert_match(
+            user_id="user-scoring",
+            job_id="job-scoring",
+            score=0.92,
+            rationale="Updated fit rationale after resume upgrade."
+        )
+        uow.commit()
+        assert match2["status"] == "applied", f"Status was reset to {match2['status']} instead of preserving 'applied'!"
+        assert match2["score"] == 0.92
+        assert match2["rationale"] == "Updated fit rationale after resume upgrade."
+
+    logger.info("=== Test 7 Passed: Job match status preservation verified! ===\n")
+
+
 if __name__ == "__main__":
     try:
         test_schema_and_migrations()
@@ -140,7 +225,9 @@ if __name__ == "__main__":
         test_seeder_idempotency()
         test_discovery_integration()
         test_gap_integration()
-        logger.info("=== ALL 5 PHASE 5A DATABASE TESTS PASSED SUCCESSFULLY! ===")
+        test_active_resume_db_constraint()
+        test_match_status_preservation()
+        logger.info("=== ALL 7 PHASE 2 DATABASE TESTS PASSED SUCCESSFULLY! ===")
     except Exception as e:
         logger.error(f"Verification failed: {e}", exc_info=True)
         sys.exit(1)

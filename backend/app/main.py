@@ -26,13 +26,31 @@ async def startup_event():
     try:
         seed_if_empty()
         from app.services.ingestion.embedding_worker import embedding_worker
+        from app.services.ingestion.scoring_worker import scoring_worker
         from app.services.job_scheduler import job_scheduler
         embedding_worker.start()
+        scoring_worker.start()
         job_scheduler.start(run_immediately=True)
     except Exception as e:
         print(f"Startup initialization skipped or failed: {e}")
 
+@app.on_event("shutdown")
+async def shutdown_event():
+    try:
+        from app.services.ingestion.embedding_worker import embedding_worker
+        from app.services.ingestion.scoring_worker import scoring_worker
+        from app.services.job_scheduler import job_scheduler
+        job_scheduler.stop()
+        scoring_worker.stop()
+        embedding_worker.stop()
+    except Exception as e:
+        print(f"Shutdown cleanup failed: {e}")
+
 @app.get("/health")
 def health_check():
-    return {"status": "ok"}
+    from app.services.ingestion.queue import embedding_queue
+    return {
+        "status": "ok",
+        "queue_backend": embedding_queue.queue_backend
+    }
 

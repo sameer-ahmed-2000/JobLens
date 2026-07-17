@@ -8,6 +8,7 @@ from app.repositories.gap_repository import GapRepository
 from app.repositories.application_repository import ApplicationRepository
 from app.repositories.interview_note_repository import InterviewNoteRepository
 from app.repositories.ingestion_run_repository import IngestionRunRepository
+from app.repositories.job_match_repository import JobMatchRepository
 
 class UnitOfWork:
     def __init__(self, session_factory=SessionLocal):
@@ -24,6 +25,7 @@ class UnitOfWork:
         self.applications = ApplicationRepository(self.session)
         self.interview_notes = InterviewNoteRepository(self.session)
         self.ingestion_runs = IngestionRunRepository(self.session)
+        self.job_matches = JobMatchRepository(self.session)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):

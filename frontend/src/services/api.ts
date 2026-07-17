@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { ScoredPosting, GapReport, GapReportRequest, Application, InterviewNote, DashboardMetrics, ApplicationStatus } from '../types';
+import type { ScoredPosting, GapReport, GapReportRequest, Application, InterviewNote, DashboardMetrics, ApplicationStatus, UserProfile } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -9,6 +9,27 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Axios interceptor to attach dynamic authorization bearer token from sessionStorage
+apiClient.interceptors.request.use((config) => {
+  const token = sessionStorage.getItem('joblens_auth_token') || 'default-user-token';
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+export const createStreamTicket = async (): Promise<string> => {
+  const response = await apiClient.post<{ ticket: string }>('/api/stream/ticket');
+  return response.data.ticket;
+};
+
+export const getMatches = async (since?: string): Promise<ScoredPosting[]> => {
+  const response = await apiClient.get<ScoredPosting[]>('/api/matches', {
+    params: since ? { since } : undefined,
+  });
+  return response.data;
+};
 
 export const getRankedPostings = async (): Promise<ScoredPosting[]> => {
   const response = await apiClient.get<ScoredPosting[]>('/api/postings');
@@ -67,6 +88,21 @@ export const deleteNote = async (note_id: string): Promise<void> => {
 
 export const getDashboardMetrics = async (): Promise<DashboardMetrics> => {
   const response = await apiClient.get<DashboardMetrics>('/api/dashboard');
+  return response.data;
+};
+
+export const getMatchDetail = async (match_id: string): Promise<ScoredPosting> => {
+  const response = await apiClient.get<ScoredPosting>(`/api/matches/${match_id}`);
+  return response.data;
+};
+
+export const getProfile = async (): Promise<UserProfile> => {
+  const response = await apiClient.get<UserProfile>('/api/profile');
+  return response.data;
+};
+
+export const updateProfile = async (profile: Partial<UserProfile>): Promise<UserProfile> => {
+  const response = await apiClient.put<UserProfile>('/api/profile', profile);
   return response.data;
 };
 

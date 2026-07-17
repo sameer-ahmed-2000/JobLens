@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import type { ScoredPosting, FilterState, SortOption, GapReport as GapReportType } from '../types';
-import { getRankedPostings, generateGapReport, QUERY_CONFIG } from '../services/api';
+import { getRankedPostings, generateGapReport, getMatchDetail, createStreamTicket, getMatches, QUERY_CONFIG } from '../services/api';
 import { calculateQuickStats, getScoreValue } from '../utils/helpers';
 import { QuickStats } from '../components/QuickStats';
 import { SearchBar } from '../components/SearchBar';
@@ -10,6 +11,8 @@ import { PostingList } from '../components/PostingList';
 import { GapReport } from '../components/GapReport';
 
 const Dashboard: React.FC = () => {
+  const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
   const [selectedPosting, setSelectedPosting] = useState<ScoredPosting | null>(null);
   const [searchText, setSearchText] = useState<string>('');
   const [filters, setFilters] = useState<FilterState>({
@@ -18,6 +21,116 @@ const Dashboard: React.FC = () => {
     sort: 'score_desc' as SortOption,
   });
   const autoSelectedRef = useRef(false);
+  const [newMatchIds, setNewMatchIds] = useState<string[]>([]);
+
+  // SSE connection setup with ticket-based auth & gap backfilling
+  const lastSeenTimestampRef = useRef<string>(new Date().toISOString());
+  const hasConnectedOnceRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    let eventSource: EventSource | null = null;
+    let isActive = true;
+
+    const connectSSE = async () => {
+      try {
+        const ticket = await createStreamTicket();
+        if (!isActive) return;
+
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+        eventSource = new EventSource(`${API_URL}/api/stream/jobs?ticket=${ticket}`);
+
+        eventSource.onopen = () => {
+          if (hasConnectedOnceRef.current) {
+            console.log("SSE reconnected. Fetching missed matches since:", lastSeenTimestampRef.current);
+            getMatches(lastSeenTimestampRef.current).then((missedMatches) => {
+              if (!isActive) return;
+              if (missedMatches && missedMatches.length > 0) {
+                const missedIds = missedMatches.map(m => m.id);
+                setNewMatchIds(prev => [...prev, ...missedIds]);
+                setTimeout(() => {
+                  setNewMatchIds(prev => prev.filter(id => !missedIds.includes(id)));
+                }, 5000);
+
+                queryClient.setQueryData<ScoredPosting[]>(['postings'], (oldPostings) => {
+                  if (!oldPostings) return missedMatches;
+                  const filteredMissed = missedMatches.filter(
+                    m => !oldPostings.some(p => p.id === m.id || p.posting.id === m.posting.id)
+                  );
+                  return [...filteredMissed, ...oldPostings];
+                });
+
+                lastSeenTimestampRef.current = new Date().toISOString();
+              }
+            }).catch(err => {
+              console.error("Failed to backfill matches on SSE reconnect:", err);
+            });
+          } else {
+            hasConnectedOnceRef.current = true;
+            console.log("SSE initial connection established.");
+          }
+        };
+
+        eventSource.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(event.data);
+            if (payload.type === 'new_match') {
+              const matchId = payload.job_match_id;
+              
+              const newMatch: ScoredPosting = {
+                id: matchId,
+                overall_score: payload.score,
+                fit_rationale: "New live match! Click to analyze.",
+                status: "new",
+                posting: {
+                  id: matchId,
+                  title: payload.title,
+                  company: payload.company,
+                  url: payload.url,
+                  source: payload.source || 'Live',
+                  description: '',
+                }
+              };
+
+              setNewMatchIds(prev => [...prev, matchId]);
+              setTimeout(() => {
+                setNewMatchIds(prev => prev.filter(id => id !== matchId));
+              }, 5000);
+
+              queryClient.setQueryData<ScoredPosting[]>(['postings'], (oldPostings) => {
+                if (!oldPostings) return [newMatch];
+                if (oldPostings.some(p => p.id === matchId || p.posting.id === newMatch.posting.id)) {
+                  return oldPostings;
+                }
+                return [newMatch, ...oldPostings];
+              });
+
+              lastSeenTimestampRef.current = new Date().toISOString();
+            }
+          } catch (err) {
+            console.error("Failed to parse SSE payload:", err);
+          }
+        };
+
+        eventSource.onerror = (err) => {
+          console.error("SSE connection error, EventSource will automatically attempt reconnection.", err);
+        };
+      } catch (err) {
+        console.error("Failed to initialize SSE connection ticket:", err);
+        setTimeout(() => {
+          if (isActive) connectSSE();
+        }, 5000);
+      }
+    };
+
+    connectSSE();
+
+    return () => {
+      isActive = false;
+      if (eventSource) {
+        eventSource.close();
+      }
+    };
+  }, [queryClient]);
 
   // Fetch ranked postings with React Query (Refinement #11: staleTime 5 mins)
   const {
@@ -33,24 +146,70 @@ const Dashboard: React.FC = () => {
     refetchOnWindowFocus: QUERY_CONFIG.refetchOnWindowFocus,
   });
 
+  // Mutation to fetch match detail (triggers lazy rationale generation)
+  const fetchMatchDetailMutation = useMutation<ScoredPosting, Error, string>({
+    mutationFn: (matchId) => getMatchDetail(matchId),
+    onSuccess: (updatedMatch) => {
+      setSelectedPosting(updatedMatch);
+      queryClient.setQueryData<ScoredPosting[]>(['postings'], (oldPostings) => {
+        if (!oldPostings) return [];
+        return oldPostings.map((p) =>
+          (p.id === updatedMatch.id || p.posting.id === updatedMatch.posting.id) ? updatedMatch : p
+        );
+      });
+    },
+  });
+
   // Mutation to generate Gap Report
   const generateReportMutation = useMutation<GapReportType, Error, { posting_url: string }>({
     mutationFn: (req) => generateGapReport(req),
   });
 
-  // Auto-select Top Job on Load (Refinement #1 ⭐⭐⭐⭐⭐)
+  // Auto-select match on load (supports deep linking via ?match=...)
   useEffect(() => {
-    if (postings.length > 0 && !selectedPosting && !autoSelectedRef.current) {
+    if (postings.length > 0 && !autoSelectedRef.current) {
       autoSelectedRef.current = true;
-      const topJob = postings[0];
-      setSelectedPosting(topJob);
-      const targetIdentifier = topJob.posting.url || topJob.posting.id;
+      const matchParam = searchParams.get('match');
+      let targetJob = postings[0];
+
+      if (matchParam) {
+        const found = postings.find(p => p.id === matchParam || p.posting.id === matchParam);
+        if (found) {
+          targetJob = found;
+        } else {
+          // If the match isn't in the postings list (e.g. filtered out by display_threshold), load it lazily
+          getMatchDetail(matchParam)
+            .then((loadedMatch) => {
+              setSelectedPosting(loadedMatch);
+              const matchIdentifier = loadedMatch.id || loadedMatch.posting.id;
+              if (matchIdentifier) {
+                fetchMatchDetailMutation.mutate(matchIdentifier);
+              }
+              const targetIdentifier = loadedMatch.posting.url || loadedMatch.posting.id;
+              if (targetIdentifier) {
+                generateReportMutation.mutate({ posting_url: targetIdentifier });
+              }
+            })
+            .catch((err) => {
+              console.error("Failed to load match detail from deep-link:", err);
+            });
+          return;
+        }
+      }
+
+      setSelectedPosting(targetJob);
+      const matchIdentifier = targetJob.id || targetJob.posting.id;
+      if (matchIdentifier) {
+        fetchMatchDetailMutation.mutate(matchIdentifier);
+      }
+
+      const targetIdentifier = targetJob.posting.url || targetJob.posting.id;
       if (targetIdentifier) {
         generateReportMutation.mutate({ posting_url: targetIdentifier });
       }
     }
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [postings, selectedPosting]);
+  }, [postings, searchParams]);
 
   // Handle manual selection of a job posting
   const handleSelectPosting = (posting: ScoredPosting) => {
@@ -58,6 +217,12 @@ const Dashboard: React.FC = () => {
       return; // Disable repeated clicks on the same active card while loading
     }
     setSelectedPosting(posting);
+
+    const matchIdentifier = posting.id || posting.posting.id;
+    if (matchIdentifier) {
+      fetchMatchDetailMutation.mutate(matchIdentifier);
+    }
+
     const targetIdentifier = posting.posting.url || posting.posting.id;
     if (targetIdentifier) {
       generateReportMutation.mutate({ posting_url: targetIdentifier });
@@ -173,6 +338,7 @@ const Dashboard: React.FC = () => {
               selectedPosting={selectedPosting}
               onSelectPosting={handleSelectPosting}
               isGeneratingReport={generateReportMutation.isPending}
+              newMatchIds={newMatchIds}
             />
           </div>
         </div>

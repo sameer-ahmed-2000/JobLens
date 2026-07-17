@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { InterviewNote } from '../types';
 import { getNotes, addNote, updateNote, deleteNote } from '../services/api';
 
 interface InterviewNotesProps {

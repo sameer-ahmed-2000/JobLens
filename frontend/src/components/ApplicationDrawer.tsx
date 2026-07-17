@@ -6,7 +6,6 @@ import { GapReport } from './GapReport';
 import { InterviewNotes } from './InterviewNotes';
 import { Timeline } from './Timeline';
 import { InterviewChecklist } from './InterviewChecklist';
-import { StatusBadge } from './StatusBadge';
 import { XIcon, ExternalLinkIcon, BuildingIcon } from './icons';
 
 interface ApplicationDrawerProps {

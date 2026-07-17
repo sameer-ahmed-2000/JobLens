@@ -40,4 +40,24 @@ class Settings(BaseModel):
     # free-tier aggregator APIs on every /discover call.
     live_search_min_interval_minutes: int = int(os.getenv("LIVE_SEARCH_MIN_INTERVAL_MINUTES", "15"))
 
+    # Redis configuration
+    redis_url: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    embedding_stream_maxlen: int = int(os.getenv("EMBEDDING_STREAM_MAXLEN", "10000"))
+    embedding_max_retries: int = int(os.getenv("EMBEDDING_MAX_RETRIES", "3"))
+
+    # SMTP Configuration
+    smtp_host: str = os.getenv("SMTP_HOST", "localhost")
+    smtp_port: int = int(os.getenv("SMTP_PORT", "1025"))
+    smtp_username: str = os.getenv("SMTP_USERNAME", "")
+    smtp_password: str = os.getenv("SMTP_PASSWORD", "")
+    smtp_from: str = os.getenv("SMTP_FROM", "noreply@joblens.ai")
+
+    # WhatsApp Configuration
+    whatsapp_api_token: str = os.getenv("WHATSAPP_API_TOKEN", "")
+    whatsapp_phone_number_id: str = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "")
+
+    # Notification settings
+    max_notifs_per_hour: int = int(os.getenv("MAX_NOTIFS_PER_HOUR", "5"))
+    frontend_url: str = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
 settings = Settings()

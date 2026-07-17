@@ -29,6 +29,7 @@ class RawPosting(BaseModel):
     source: Optional[str] = None
 
 class ScoredPosting(BaseModel):
+    id: Optional[str] = None
     posting: RawPosting
     overall_score: float
     fit_rationale: str
@@ -64,3 +65,18 @@ class GapReportRequest(BaseModel):
     job_description: Optional[str] = None
     jd_text: Optional[str] = None
     posting_url: Optional[str] = None
+
+class UserProfileSchema(BaseModel):
+    id: str
+    name: str
+    email: str
+    whatsapp_number: Optional[str] = None
+    notify_threshold: float
+    display_threshold: float
+
+class UserProfileUpdateSchema(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    whatsapp_number: Optional[str] = None
+    notify_threshold: Optional[float] = None
+    display_threshold: Optional[float] = None

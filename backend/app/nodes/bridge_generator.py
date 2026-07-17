@@ -15,7 +15,20 @@ def bridge_generator_node(state: Dict[str, Any]) -> Dict[str, Any]:
         logger.warning("No skill gaps available for bridge generation.")
         return {"skill_gaps": []}
 
-    resume = load_resume_data()
+    user_id = state.get("user_id", "default-user-id")
+    resume = None
+    try:
+        from app.repositories.uow import UnitOfWork
+        with UnitOfWork() as uow:
+            resume = uow.resumes.get_active(user_id)
+            if resume:
+                logger.info(f"Loaded active resume from database for bridge generation (user: {user_id}).")
+    except Exception as e:
+        logger.warning(f"Could not load active resume from DB: {e}; falling back to local file.")
+
+    if not resume:
+        resume = load_resume_data()
+
     resume_text = f"Title: {resume.get('title', '')}. Skills: {', '.join(resume.get('skills', []))}."
     projects_text = " ".join([f"Project {p.get('name', '')}: {p.get('description', '')} Technologies: {', '.join(p.get('technologies', []))}." for p in resume.get("projects", [])])
 

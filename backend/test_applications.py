@@ -1,13 +1,53 @@
 import pytest
-from fastapi.testclient import TestClient
+import os
+import sys
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+# 1. Setup SQLite database for isolated applications testing
+test_engine = create_engine("sqlite:///test_apps.db", connect_args={"check_same_thread": False})
+TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+
+# 2. Ensure backend directory is in sys.path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# 3. Monkey-patch SessionLocal globally before importing main application
+import app.database
+app.database.SessionLocal = TestSessionLocal
+
+import app.repositories.uow
+app.repositories.uow.SessionLocal = TestSessionLocal
+
 from app.main import app
+from app.database import Base, get_db
+from app.repositories.uow import UnitOfWork
+from app.services.seeder import seed_if_empty
+from app.models.orm import InterviewNoteORM
 
+# 4. Initialize TestClient and apply authentication headers globally
+from fastapi.testclient import TestClient
 client = TestClient(app)
+client.headers.update({"Authorization": "Bearer default-user-token"})
 
-# Note: tests rely on the default-user-id seeded data.
+
+@pytest.fixture(autouse=True, scope="module")
+def setup_database():
+    """Create tables and seed database before running module tests."""
+    Base.metadata.create_all(bind=test_engine)
+    # Seed the test SQLite database
+    seed_if_empty(uow_factory=UnitOfWork)
+    yield
+    Base.metadata.drop_all(bind=test_engine)
+    # Cleanup test db file
+    if os.path.exists("test_apps.db"):
+        try:
+            os.remove("test_apps.db")
+        except Exception:
+            pass
+
 
 def test_save_application():
-    # Attempt to save a job (we assume job 0 exists from seeder)
+    # Attempt to save a job (we assume job exists from seeder)
     res = client.get("/api/postings")
     assert res.status_code == 200
     postings = res.json()
