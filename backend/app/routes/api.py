@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from typing import List, Optional, Dict
 import json
 import os
@@ -349,7 +350,7 @@ async def update_profile(
         if target_notify < target_display:
             raise HTTPException(
                 status_code=400,
-                detail=f"Validation failed: Notification threshold ({target_notify}) cannot be lower than display threshold ({target_display})."
+                detail=f"Validation failed: Notification threshold ({target_notify}) cannot be lower than display threshold ({target_display}).",
             )
 
         updated_user = uow.users.update(
@@ -362,3 +363,58 @@ async def update_profile(
         )
         uow.commit()
         return updated_user
+
+
+class TokenRotateConfirm(BaseModel):
+    confirm: bool
+
+
+@router.post("/profile/rotate-token")
+async def rotate_token(
+    body: TokenRotateConfirm,
+    current_user_id: str = Depends(get_current_user_id),
+):
+    """
+    Rotate the API token for the current user.
+
+    This is a one-way, immediately irreversible action:
+    - The old token is invalidated the moment this request commits.
+    - The new raw token is returned **once** and cannot be retrieved again.
+    - There is no grace period \u2014 any in-flight requests using the old token
+      will fail after this call completes.
+
+    Requires {"confirm": true} in the request body to prevent accidental
+    self-lockout from retried requests or stray UI clicks.
+    """
+    if not body.confirm:
+        raise HTTPException(
+            status_code=400,
+            detail='Set "confirm": true in the request body to proceed with token rotation.',
+        )
+
+    import secrets
+    import hashlib
+
+    raw_token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+    from app.repositories.uow import UnitOfWork
+
+    with UnitOfWork() as uow:
+        success = uow.users.update_token_hash(current_user_id, token_hash)
+        if not success:
+            raise HTTPException(status_code=404, detail="User not found.")
+        uow.commit()
+
+    import logging
+    logging.getLogger("routes.api").info(
+        f"Token rotated for user {current_user_id}. Old token invalidated."
+    )
+
+    return {
+        "message": (
+            "Token rotated successfully. "
+            "Store the new token securely \u2014 it will not be shown again."
+        ),
+        "new_token": raw_token,
+    }

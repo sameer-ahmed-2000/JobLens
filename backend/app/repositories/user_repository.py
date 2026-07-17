@@ -48,6 +48,15 @@ class UserRepository:
         self.session.flush()
         return self._to_dict(user)
 
+    def update_token_hash(self, user_id: str, token_hash: str) -> bool:
+        """Atomically replace a user's stored token hash, invalidating the old token immediately."""
+        user = self.session.query(UserORM).filter(UserORM.id == user_id).first()
+        if not user:
+            return False
+        user.token_hash = token_hash
+        self.session.flush()
+        return True
+
     def update(
         self,
         user_id: str,

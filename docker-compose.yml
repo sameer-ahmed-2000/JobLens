@@ -4,7 +4,14 @@ services:
   redis:
     image: redis:7-alpine
     container_name: joblens-redis
-    command: redis-server --appendonly yes
+    # :? causes docker-compose to FAIL at startup if REDIS_PASSWORD is unset,
+    # preventing a silent insecure start with a well-known fallback password.
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set in your .env file}
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     ports:
       - "6379:6379"
     volumes:

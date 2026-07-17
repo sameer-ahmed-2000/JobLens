@@ -2,6 +2,7 @@ import time
 import threading
 import logging
 import json
+from datetime import datetime
 from typing import Dict, Any, Optional
 from app.repositories.uow import UnitOfWork
 from app.services.similarity import cosine_similarity
@@ -16,6 +17,7 @@ class ActiveResumesCache:
         self._lock = threading.Lock()
         self._timer: Optional[threading.Timer] = None
         self._running = False
+        self._last_refreshed_at: Optional[datetime] = None  # exposed to /health
 
     def start(self) -> None:
         if self._running:
@@ -83,6 +85,7 @@ class ActiveResumesCache:
         # Atomically swap reference under lock to prevent race conditions during updates
         with self._lock:
             self._cache = new_cache
+        self._last_refreshed_at = datetime.utcnow()
         logger.info(f"Refreshed active resumes cache. Loaded {len(new_cache)} active resumes.")
 
     def get_all(self) -> Dict[str, Dict[str, Any]]:
@@ -129,35 +132,61 @@ class ScoringService:
                 logger.warning("ScoringService: Active resumes cache is empty. No jobs scored.")
                 return
 
-            for user_id, user_data in active_resumes.items():
+            # Stash values we need after the UoW closes (ORM objects detach on session close)
+            job_title = job.title
+            job_company_name = job.company.name if job.company else "Unknown Company"
+            job_url = job.url
+            job_source = job.source or "Live"
+
+        # --- Per-user isolation ---
+        # Each user gets its own UnitOfWork so a failure for one user (bad
+        # embedding, DB constraint) doesn't roll back results for all others.
+        # commit() is called BEFORE _publish_match_event() to guarantee the
+        # match is persisted before any notification is dispatched.
+        scored_count = 0
+        for user_id, user_data in active_resumes.items():
+            try:
                 resume_embedding = user_data["embedding"]
                 display_threshold = user_data["display_threshold"]
 
                 sim = cosine_similarity(job_embedding, resume_embedding)
                 score = round(sim, 4)
 
-                # Upsert match record in DB (using UnitOfWork's repository)
-                match_res = uow.job_matches.upsert(user_id=user_id, job_id=job_id, score=score)
+                with UnitOfWork() as user_uow:
+                    match_res = user_uow.job_matches.upsert(
+                        user_id=user_id, job_id=job_id, score=score
+                    )
+                    user_uow.commit()  # persist FIRST
 
                 if publish_events and score >= display_threshold:
                     job_match_id = match_res["id"]
-                    comp_name = job.company.name if job.company else "Unknown Company"
                     self._publish_match_event(
                         user_id=user_id,
+                        job_id=job_id,
                         job_match_id=job_match_id,
-                        title=job.title,
-                        company=comp_name,
+                        title=job_title,
+                        company=job_company_name,
                         score=score,
-                        url=job.url,
-                        source=job.source or "Live"
-                    )
+                        url=job_url,
+                        source=job_source
+                    )  # publish AFTER commit
 
-            uow.commit()
-            logger.info(f"ScoringService: Completed scoring for job '{job.title}' ({job_id}) against {len(active_resumes)} users.")
+                scored_count += 1
+            except Exception as user_exc:
+                logger.error(
+                    f"ScoringService: Failed to score job '{job_id}' for user '{user_id}': {user_exc}",
+                    exc_info=True
+                )
+
+        logger.info(
+            f"ScoringService: Scored {scored_count}/{len(active_resumes)} users "
+            f"for job '{job_title}' ({job_id})."
+        )
 
     def _publish_match_event(
         self,
         user_id: str,
+        job_id: str,
         job_match_id: str,
         title: str,
         company: str,
@@ -165,9 +194,15 @@ class ScoringService:
         url: str,
         source: str
     ) -> None:
-        """Publishes the job match event to the user's specific Redis PubSub channel."""
+        """Publishes the job match event to the user's specific Redis PubSub channel.
+
+        job_id is included in the payload so the notifier process can extract it
+        and set a local correlation ID for end-to-end log tracing across the
+        process boundary (contextvars cannot cross OS process boundaries).
+        """
         event_data = {
             "type": "new_match",
+            "job_id": job_id,           # propagates correlation ID across processes
             "job_match_id": job_match_id,
             "title": title,
             "company": company,

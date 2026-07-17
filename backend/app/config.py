@@ -41,7 +41,13 @@ class Settings(BaseModel):
     live_search_min_interval_minutes: int = int(os.getenv("LIVE_SEARCH_MIN_INTERVAL_MINUTES", "15"))
 
     # Redis configuration
-    redis_url: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    # URL is built from components to avoid python-dotenv's unreliable ${VAR}
+    # interpolation within .env files. Set REDIS_PASSWORD, REDIS_HOST, etc.
+    # individually — never set REDIS_URL directly.
+    redis_password: str = os.getenv("REDIS_PASSWORD", "")
+    redis_host: str = os.getenv("REDIS_HOST", "localhost")
+    redis_port: int = int(os.getenv("REDIS_PORT", "6379"))
+    redis_db: int = int(os.getenv("REDIS_DB", "0"))
     embedding_stream_maxlen: int = int(os.getenv("EMBEDDING_STREAM_MAXLEN", "10000"))
     embedding_max_retries: int = int(os.getenv("EMBEDDING_MAX_RETRIES", "3"))
 
@@ -60,4 +66,19 @@ class Settings(BaseModel):
     max_notifs_per_hour: int = int(os.getenv("MAX_NOTIFS_PER_HOUR", "5"))
     frontend_url: str = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
+# Build redis_url from components after Settings is instantiated.
+# Must be done at module level (not inside __init__) so that load_dotenv()
+# has already been called and os.getenv() returns the real values.
+_rp = os.getenv("REDIS_PASSWORD", "")
+_rh = os.getenv("REDIS_HOST", "localhost")
+_rport = os.getenv("REDIS_PORT", "6379")
+_rdb = os.getenv("REDIS_DB", "0")
+
 settings = Settings()
+# Override redis_url with the programmatically constructed URL so the
+# auth credentials are always embedded correctly regardless of .env contents.
+object.__setattr__(
+    settings,
+    "redis_url",
+    f"redis://:{_rp}@{_rh}:{_rport}/{_rdb}" if _rp else f"redis://{_rh}:{_rport}/{_rdb}"
+)

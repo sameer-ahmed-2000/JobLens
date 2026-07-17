@@ -1,3 +1,23 @@
+"""
+job_scheduler.py — JobScheduler service and optional standalone entry point.
+
+DEPLOYMENT NOTE — embedded vs. standalone:
+
+  The FastAPI app (main.py) automatically starts embedding_worker,
+  scoring_worker, and job_scheduler on its startup event. This is the
+  default deployment mode when you run `uvicorn app.main:app`.
+
+  The __main__ block at the bottom of this file is a STANDALONE alternative
+  intended for environments where the scheduler runs as a separate process
+  (e.g. a separate container, worker dyno, or local debug session).
+
+  Do NOT run both modes simultaneously against the same Redis unless you
+  intentionally want multiple consumers on the embedding/scoring streams.
+  Consumer groups will distribute messages (not duplicate them), so work
+  won't be processed twice, but resource usage doubles and correlating logs
+  across two independent process trees becomes harder. If in doubt, use
+  only the embedded mode (FastAPI startup).
+"""
 import time
 import logging
 import threading

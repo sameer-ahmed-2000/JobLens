@@ -19,8 +19,16 @@ from app.repositories.uow import UnitOfWork
 from app.models.orm import UserORM, JobMatchORM, JobORM
 from app.services.llm_router import llm_router
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s [cid=%(correlation_id)s] - %(message)s"
+)
 logger = logging.getLogger("notifier")
+
+# Install the filter on the root logger so all handlers inherit it.
+# This must happen after basicConfig() so the handler exists.
+from app.log_context import CorrelationIdFilter, set_correlation_id
+logging.getLogger().addFilter(CorrelationIdFilter())
 
 class Notifier:
     def __init__(self):
@@ -69,6 +77,11 @@ class Notifier:
         if event.get("type") != "new_match":
             logger.debug(f"Ignoring non-new_match event type: {event.get('type')}")
             return
+
+        # 3. Set correlation ID from the payload so all subsequent log lines in
+        #    this thread carry the originating job_id — closing the cross-process
+        #    tracing gap that contextvars alone cannot bridge.
+        set_correlation_id(event.get("job_id", "-"))
 
         score = event.get("score")
         job_match_id = event.get("job_match_id")

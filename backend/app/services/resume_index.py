@@ -47,6 +47,9 @@ class ResumeIndex(IResumeIndex):
             logger.warning(f"Database lookup failed in ResumeIndex: {e}; falling back to filesystem.")
 
         if self.resume_data is None:
+            # TODO: remove once all users are migrated off file-based resumes.
+            # This fallback exists as a migration bridge; it should not become
+            # the permanent primary path. Track removal in the issue backlog.
             if not os.path.exists(self.resume_path):
                 logger.error(f"Resume file not found at {self.resume_path}")
                 raise FileNotFoundError(f"Resume file not found at {self.resume_path}")
