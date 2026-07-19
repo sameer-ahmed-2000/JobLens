@@ -5,6 +5,7 @@ from app.services.ingestion.connectors.ashby import AshbyConnector
 from app.services.ingestion.connectors.adzuna import AdzunaConnector
 from app.services.ingestion.connectors.remotive import RemotiveConnector
 from app.services.ingestion.connectors.arbeitnow import ArbeitnowConnector
+from app.services.ingestion.connectors.jooble import JoobleConnector
 
 __all__ = [
     "BaseConnector",
@@ -14,5 +15,6 @@ __all__ = [
     "AshbyConnector",
     "AdzunaConnector",
     "RemotiveConnector",
-    "ArbeitnowConnector"
+    "ArbeitnowConnector",
+    "JoobleConnector"
 ]

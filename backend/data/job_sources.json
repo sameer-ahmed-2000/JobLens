@@ -10,5 +10,6 @@
   {"name": "Ashby:linear", "url": "linear", "is_active": true},
   {"name": "Adzuna:search", "url": "aggregator", "is_active": true},
   {"name": "Remotive:search", "url": "aggregator", "is_active": true},
-  {"name": "Arbeitnow:search", "url": "aggregator", "is_active": true}
+  {"name": "Arbeitnow:search", "url": "aggregator", "is_active": true},
+  {"name": "Jooble:search", "url": "aggregator", "is_active": true}
 ]

@@ -30,6 +30,17 @@ class JobRepository:
         ).first()
         return self._to_pydantic(job) if job else None
 
+    def _resolve_company_id(self, company_name: Optional[str]) -> Optional[str]:
+        if not company_name or not company_name.strip():
+            return None
+        c_name = company_name.strip()
+        comp = self.session.query(CompanyORM).filter(CompanyORM.name.ilike(c_name)).first()
+        if not comp:
+            comp = CompanyORM(name=c_name)
+            self.session.add(comp)
+            self.session.flush()
+        return comp.id
+
     def upsert(
         self,
         title: str,
@@ -53,11 +64,13 @@ class JobRepository:
         if not job and job_id:
             job = self.session.query(JobORM).filter(JobORM.id == job_id).first()
 
+        resolved_company_id = company_id or self._resolve_company_id(company_name)
+
         if job:
             job.title = title
             job.description = description
-            if company_id:
-                job.company_id = company_id
+            if resolved_company_id:
+                job.company_id = resolved_company_id
             if source:
                 job.source = source
             if location:
@@ -86,7 +99,7 @@ class JobRepository:
                 description=description,
                 url=url,
                 source=source,
-                company_id=company_id,
+                company_id=resolved_company_id,
                 location=location,
                 employment_type=employment_type,
                 salary=salary,
