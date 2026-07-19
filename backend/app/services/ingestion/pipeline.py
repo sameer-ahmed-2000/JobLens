@@ -8,6 +8,7 @@ from app.services.ingestion.source_registry import SourceRegistry
 from app.services.ingestion.connectors import (
     GreenhouseConnector, LeverConnector, AshbyConnector,
     AdzunaConnector, RemotiveConnector, ArbeitnowConnector,
+    JoobleConnector,
     ConnectorResultV1
 )
 from app.services.ingestion.normalizer import normalize_job
@@ -34,12 +35,13 @@ def run_ingestion_pipeline(keywords: Optional[List[str]] = None, location: Optio
         "ashby": AshbyConnector(),
         "adzuna": AdzunaConnector(),
         "remotive": RemotiveConnector(),
-        "arbeitnow": ArbeitnowConnector()
+        "arbeitnow": ArbeitnowConnector(),
+        "jooble": JoobleConnector()
     }
 
     # Aggregator sources are keyword/location-driven rather than fixed-board,
     # so they need the resume-derived query injected into their source_config.
-    AGGREGATOR_TYPES = {"adzuna", "remotive", "arbeitnow"}
+    AGGREGATOR_TYPES = {"adzuna", "remotive", "arbeitnow", "jooble"}
 
     # Global deduplication trackers across all sources in this run
     seen_urls = set()

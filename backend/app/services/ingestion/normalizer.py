@@ -59,6 +59,13 @@ def normalize_job(raw_item: Dict[str, Any], source_type: str, board: str) -> Opt
             url = raw_item.get("url", "")
             description = strip_html(raw_item.get("description", "")).strip()
             company = raw_item.get("company_name", "Unknown") or "Unknown"
+
+        elif source_type.lower() == "jooble":
+            job_id = f"job-{raw_item.get('id')}"
+            title = raw_item.get("title", "")
+            url = raw_item.get("link", "")
+            description = strip_html(raw_item.get("snippet", "")).strip()
+            company = raw_item.get("company", "Unknown") or "Unknown"
         else:
             logger.warning(f"Unknown source_type '{source_type}' during normalization.")
             return None

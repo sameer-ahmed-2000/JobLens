@@ -108,3 +108,46 @@ class BaseConnector(ABC):
 
         logger.error(f"All {self.max_retries + 1} attempts failed for GET {url}")
         return None
+
+    def _http_post_with_retry(
+        self, url: str, json_body: Optional[Dict[str, Any]] = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Same rate-limiting/back-off contract as _http_get_with_retry, for sources
+        (e.g. Jooble) whose search endpoint requires POST with a JSON body instead
+        of query params.
+        """
+        attempt = 0
+        while attempt <= self.max_retries:
+            self._throttle()
+            self._last_request_at = time.monotonic()
+            try:
+                with httpx.Client(timeout=self.timeout) as client:
+                    response = client.post(url, json=json_body)
+                    if response.status_code == 200:
+                        return response.json()
+                    elif response.status_code == 429:
+                        retry_after = float(response.headers.get("Retry-After", self._backoff_base * (2 ** attempt)))
+                        logger.warning(
+                            f"Rate-limited by {url} (HTTP 429). Waiting {retry_after:.1f}s "
+                            f"before attempt {attempt + 2}/{self.max_retries + 1}."
+                        )
+                        time.sleep(retry_after)
+                    else:
+                        logger.warning(
+                            f"HTTP POST {url} returned status {response.status_code} "
+                            f"(attempt {attempt + 1}/{self.max_retries + 1})."
+                        )
+            except Exception as e:
+                logger.warning(
+                    f"Attempt {attempt + 1}/{self.max_retries + 1} failed for POST {url}: {e}"
+                )
+
+            attempt += 1
+            if attempt <= self.max_retries:
+                backoff = self._backoff_base * (2 ** (attempt - 1))
+                logger.debug(f"Back-off: waiting {backoff:.2f}s before retry {attempt + 1}.")
+                time.sleep(backoff)
+
+        logger.error(f"All {self.max_retries + 1} attempts failed for POST {url}")
+        return None

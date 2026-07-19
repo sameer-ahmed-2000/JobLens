@@ -30,6 +30,10 @@ class Settings(BaseModel):
     adzuna_app_id: str = os.getenv("ADZUNA_APP_ID", "")
     adzuna_app_key: str = os.getenv("ADZUNA_APP_KEY", "")
     adzuna_country: str = os.getenv("ADZUNA_COUNTRY", "in")  # ISO country code, e.g. "in", "us", "gb"
+
+    # Jooble aggregator (free tier: https://jooble.org/api/about)
+    jooble_api_key: str = os.getenv("JOOBLE_API_KEY", "")
+    jooble_enabled: bool = os.getenv("JOOBLE_ENABLED", "true").lower() == "true"
     default_location: str = os.getenv("DEFAULT_JOB_LOCATION", "")  # e.g. "Chennai" or "" for no filter
 
     adzuna_enabled: bool = os.getenv("ADZUNA_ENABLED", "true").lower() == "true"

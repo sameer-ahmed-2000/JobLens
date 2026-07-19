@@ -1,0 +1,22 @@
+[project]
+name = "joblens-backend"
+version = "0.1.0"
+description = "JobLens backend API service"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "langgraph",
+    "sentence-transformers",
+    "faiss-cpu",
+    "python-dotenv",
+    "numpy",
+    "pandas",
+    "httpx",
+    "orjson",
+    "sqlalchemy",
+    "alembic",
+    "psycopg2-binary",
+    "redis>=5.0",
+]
