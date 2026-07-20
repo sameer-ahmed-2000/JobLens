@@ -1,4 +1,4 @@
-*.md
+project.md
 database.db
 *.env
 # Test artifact databases — committed by mistake, now gitignored.
