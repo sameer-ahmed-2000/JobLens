@@ -70,6 +70,9 @@ class Settings(BaseModel):
     max_notifs_per_hour: int = int(os.getenv("MAX_NOTIFS_PER_HOUR", "5"))
     frontend_url: str = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
+    # Self-Serve Onboarding Invite Protection
+    signup_invite_token: str = os.getenv("SIGNUP_INVITE_TOKEN", "joblens-beta-2026")
+
 # Build redis_url from components after Settings is instantiated.
 # Must be done at module level (not inside __init__) so that load_dotenv()
 # has already been called and os.getenv() returns the real values.

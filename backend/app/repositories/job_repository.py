@@ -92,7 +92,8 @@ class JobRepository:
             if embedding is not None:
                 job.embedding = embedding
             self.session.flush()
-            return self._to_pydantic(job, comp_name_override=company_name)
+            self.session.refresh(job)
+            return self._to_pydantic(job)
         else:
             job = JobORM(
                 title=title,
@@ -114,7 +115,8 @@ class JobRepository:
                 job.id = job_id
             self.session.add(job)
             self.session.flush()
-            return self._to_pydantic(job, comp_name_override=company_name)
+            self.session.refresh(job)
+            return self._to_pydantic(job)
 
     def _to_pydantic(self, job: JobORM, comp_name_override: Optional[str] = None) -> RawPosting:
         comp_name = comp_name_override

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, HTTPException, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 import json
 import os
 import uuid
@@ -418,3 +418,71 @@ async def rotate_token(
         ),
         "new_token": raw_token,
     }
+
+
+class SignupRequest(BaseModel):
+    name: str
+    email: str
+    invite_code: str
+    whatsapp_number: Optional[str] = None
+    title: Optional[str] = "AI Engineer"
+    years_experience: Optional[float] = 0.0
+    skills: Optional[List[str]] = []
+    projects: Optional[List[Dict[str, Any]]] = []
+
+
+@router.post("/auth/signup")
+async def signup(request: SignupRequest):
+    """
+    Self-serve user onboarding endpoint.
+    Requires a valid invite code matching SIGNUP_INVITE_TOKEN.
+    Creates user, generates raw API token (returned ONCE), and seeds initial resume embedding.
+    """
+    import secrets
+    import hashlib
+    from app.repositories.uow import UnitOfWork
+
+    # 1. Invite token verification using constant-time comparison
+    if not request.invite_code or not secrets.compare_digest(request.invite_code, settings.signup_invite_token):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid or missing signup invite code."
+        )
+
+    # 2. Email uniqueness check & user creation
+    with UnitOfWork() as uow:
+        existing = uow.users.get_by_email(request.email)
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A user with this email address is already registered."
+            )
+
+        user_id = str(uuid.uuid4())
+        raw_token = secrets.token_urlsafe(32)
+        token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+        user = uow.users.create(
+            name=request.name,
+            email=request.email,
+            user_id=user_id,
+            whatsapp_number=request.whatsapp_number,
+            token_hash=token_hash
+        )
+
+        # 3. Create initial active resume and compute vector embeddings
+        uow.resumes.upsert_resume(
+            user_id=user_id,
+            title=request.title or "AI Engineer",
+            years_experience=request.years_experience or 0.0,
+            skills=request.skills or [],
+            projects=request.projects or []
+        )
+        uow.commit()
+
+    return {
+        "user": user,
+        "raw_token": raw_token,
+        "message": "Account created successfully. Pass 'Authorization: Bearer <raw_token>' in HTTP headers."
+    }
+
