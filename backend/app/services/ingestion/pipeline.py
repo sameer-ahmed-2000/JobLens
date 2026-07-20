@@ -117,9 +117,22 @@ def run_ingestion_pipeline(keywords: Optional[List[str]] = None, location: Optio
 
             # 2. Location filtering
             if location:
-                loc_lower = location.lower()
+                terms = [t.strip().lower() for t in location.split(",") if t.strip()]
                 raw_loc = str(raw_item.get("location", "") or raw_item.get("categories", {}).get("location", "") or raw_item.get("address", "")).lower()
-                if loc_lower not in raw_loc and loc_lower not in posting.title.lower() and loc_lower != "remote":
+                posting_title = posting.title.lower()
+                posting_desc = posting.description.lower()
+
+                matched = False
+                for term in terms:
+                    if term == "remote":
+                        if getattr(posting, "remote", False) or "remote" in raw_loc or "remote" in posting_title or "remote" in posting_desc:
+                            matched = True
+                            break
+                    else:
+                        if term in raw_loc or term in posting_title:
+                            matched = True
+                            break
+                if not matched:
                     continue
 
             # 3. Deterministic Deduplication

@@ -218,6 +218,32 @@ def test_match_status_preservation():
     logger.info("=== Test 7 Passed: Job match status preservation verified! ===\n")
 
 
+def test_job_repository_company_id_upsert():
+    logger.info("=== Starting Test 8: Job Repository Write-Time Company Resolution ===")
+    with TestUnitOfWork() as uow:
+        # Upsert a job without pre-creating company; verify CompanyORM is automatically created and company.name resolved
+        job = uow.jobs.upsert(
+            title="AI Infra Lead",
+            company_name="Acme Robotics",
+            description="Build GPU clusters",
+            url="https://acme-robotics.ai/jobs/100",
+            job_id="job-acme-1"
+        )
+        uow.commit()
+
+        assert job.company == "Acme Robotics"
+        
+        # Verify directly in DB that company_id foreign key was populated
+        from app.models.orm import JobORM, CompanyORM
+        job_orm = uow.session.query(JobORM).filter(JobORM.id == "job-acme-1").first()
+        assert job_orm.company_id is not None
+        comp_orm = uow.session.query(CompanyORM).filter(CompanyORM.id == job_orm.company_id).first()
+        assert comp_orm is not None
+        assert comp_orm.name == "Acme Robotics"
+
+    logger.info("=== Test 8 Passed: Write-time Company resolution verified! ===\n")
+
+
 if __name__ == "__main__":
     try:
         test_schema_and_migrations()
@@ -227,7 +253,8 @@ if __name__ == "__main__":
         test_gap_integration()
         test_active_resume_db_constraint()
         test_match_status_preservation()
-        logger.info("=== ALL 7 PHASE 2 DATABASE TESTS PASSED SUCCESSFULLY! ===")
+        test_job_repository_company_id_upsert()
+        logger.info("=== ALL 8 DATABASE TESTS PASSED SUCCESSFULLY! ===")
     except Exception as e:
         logger.error(f"Verification failed: {e}", exc_info=True)
         sys.exit(1)

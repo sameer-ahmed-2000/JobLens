@@ -13,7 +13,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.repositories.uow import UnitOfWork
 from app.services.seeder import seed_if_empty
-from app.services.ingestion.connectors import GreenhouseConnector, LeverConnector, AshbyConnector, ConnectorResultV1
+from app.services.ingestion.connectors import GreenhouseConnector, LeverConnector, AshbyConnector, JoobleConnector, ConnectorResultV1
 from app.services.ingestion.normalizer import normalize_job
 from app.services.ingestion.queue import embedding_queue
 from app.services.ingestion.pipeline import run_ingestion_pipeline
@@ -48,6 +48,18 @@ def test_1_connectors_and_retry():
         assert res.jobs_fetched == 1
         assert res.raw_items[0]["title"] == "AI Engineer"
 
+    # Test JoobleConnector fetch mock
+    jb = JoobleConnector(timeout=1.0, max_retries=1)
+    with patch("httpx.Client.post") as mock_post:
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"jobs": [{"id": "99", "title": "India Lead Engineer", "link": "https://jooble/99", "snippet": "Build python LLM apps", "company": "Tech Corp"}]}
+        mock_post.return_value = mock_resp
+        res = jb.fetch({"source_type": "Jooble", "name": "Jooble:search", "keywords": ["python"], "location": "India"})
+        assert res.status == "Success"
+        assert res.jobs_fetched == 1
+        assert res.raw_items[0]["title"] == "India Lead Engineer"
+
     logger.info("=== Test 1 Passed: Connectors handle retry policy and versioned results! ===\n")
 
 def test_2_normalization():
@@ -71,6 +83,13 @@ def test_2_normalization():
     assert ash_norm.company == "Vercel"
     assert ash_norm.description == "Deep learning"
 
+    jb_raw = {"id": "404", "title": "Full Stack Dev", "link": "https://jooble/404", "snippet": "<p>React & Node</p>", "company": "Acme"}
+    jb_norm = normalize_job(jb_raw, "Jooble", "search")
+    assert jb_norm.title == "Full Stack Dev"
+    assert jb_norm.company == "Acme"
+    assert jb_norm.description == "React & Node"
+    assert jb_norm.id == "job-404"
+
     logger.info("=== Test 2 Passed: Normalizer cleans HTML and standardizes Pydantic RawPosting models! ===\n")
 
 def test_3_pipeline_and_deduplication():
@@ -82,9 +101,11 @@ def test_3_pipeline_and_deduplication():
     orig_adzuna = settings.adzuna_enabled
     orig_remotive = settings.remotive_enabled
     orig_arbeitnow = settings.arbeitnow_enabled
+    orig_jooble = getattr(settings, "jooble_enabled", True)
     settings.adzuna_enabled = False
     settings.remotive_enabled = False
     settings.arbeitnow_enabled = False
+    settings.jooble_enabled = False
 
     # Ensure all Greenhouse sources are active in the test DB for the 9 jobs assertion
     with TestUnitOfWork() as uow:
@@ -105,8 +126,8 @@ def test_3_pipeline_and_deduplication():
              patch.object(LeverConnector, "fetch", return_value=ConnectorResultV1(source="Lever:netflix", duration=0.1, jobs_fetched=0, failures=0, status="Success", raw_items=[])), \
              patch.object(AshbyConnector, "fetch", return_value=ConnectorResultV1(source="Ashby:vercel", duration=0.1, jobs_fetched=0, failures=0, status="Success", raw_items=[])):
             
-            # We filter by keyword "LangGraph" or "AI Engineer" and location "Remote"
-            stats = run_ingestion_pipeline(keywords=["LangGraph"], location="Remote")
+            # We filter by keyword "LangGraph" and multi-term location "Chennai, Remote"
+            stats = run_ingestion_pipeline(keywords=["LangGraph"], location="Chennai, Remote")
             assert stats["total_fetched"] == 9  # 3 greenhouse boards * 3 jobs each
             # Job 10 matches LangGraph & Remote -> Inserted (1 on first board)
             # On subsequent boards/jobs, duplicates removed
@@ -116,7 +137,7 @@ def test_3_pipeline_and_deduplication():
         settings.adzuna_enabled = orig_adzuna
         settings.remotive_enabled = orig_remotive
         settings.arbeitnow_enabled = orig_arbeitnow
-
+        settings.jooble_enabled = orig_jooble
 
         # Check queue has job ID
         q_size = embedding_queue.size()
