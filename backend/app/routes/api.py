@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+from fastapi import APIRouter, Depends, Query, HTTPException, status, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
@@ -9,10 +9,13 @@ import time
 from datetime import datetime
 import redis.asyncio as aioredis
 from app.config import settings
-from app.models.schemas import ScoredPosting, GapReportRequest, GapReport, RawPosting, UserProfileSchema, UserProfileUpdateSchema
+from app.models.schemas import ScoredPosting, GapReportRequest, GapReport, RawPosting, UserProfileSchema, UserProfileUpdateSchema, NotificationItemSchema
+
 from app.routes.auth import get_current_user_id
+from app.rate_limiter import limiter
 
 router = APIRouter()
+
 
 # Load mock data for phase 1
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data")
@@ -28,7 +31,8 @@ async def get_postings(current_user_id: str = Depends(get_current_user_id)):
     return await discovery_service.get_ranked_postings(user_id=current_user_id, force_refresh=False)
 
 @router.post("/discover", response_model=List[ScoredPosting])
-async def trigger_discovery(force_live_search: bool = False, current_user_id: str = Depends(get_current_user_id)):
+@limiter.limit("10/minute")
+async def trigger_discovery(request: Request, force_live_search: bool = False, current_user_id: str = Depends(get_current_user_id)):
     """
     Triggers the discovery pipeline: first runs a resume-driven real-time
     search against aggregator sources (Adzuna/Remotive/Arbeitnow) using
@@ -49,7 +53,9 @@ async def trigger_discovery(force_live_search: bool = False, current_user_id: st
 
 
 @router.get("/matches/{match_id}", response_model=ScoredPosting)
-async def get_match_detail(match_id: str, current_user_id: str = Depends(get_current_user_id)):
+@limiter.limit("10/minute")
+async def get_match_detail(request: Request, match_id: str, current_user_id: str = Depends(get_current_user_id)):
+
     """
     Get job match detail. If fit_rationale is missing/empty in the database,
     triggers lazy rationale generation via LLM and caches the result.
@@ -182,7 +188,9 @@ async def get_dlq():
 _fallback_tickets: Dict[str, tuple[str, float]] = {}
 
 @router.post("/stream/ticket")
-async def create_stream_ticket(current_user_id: str = Depends(get_current_user_id)):
+@limiter.limit("30/minute")
+async def create_stream_ticket(request: Request, current_user_id: str = Depends(get_current_user_id)):
+
     """
     Mints a short-lived, single-purpose one-time ticket for opening the SSE stream.
     Valid for 60 seconds.
@@ -353,16 +361,69 @@ async def update_profile(
                 detail=f"Validation failed: Notification threshold ({target_notify}) cannot be lower than display threshold ({target_display}).",
             )
 
+        # Timezone validation if supplied
+        if profile_data.timezone:
+            import zoneinfo
+            try:
+                zoneinfo.ZoneInfo(profile_data.timezone.strip())
+            except Exception:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid IANA timezone string: '{profile_data.timezone}' (e.g., 'Asia/Kolkata', 'America/New_York', 'UTC')."
+                )
+
         updated_user = uow.users.update(
             user_id=current_user_id,
             name=profile_data.name,
             email=profile_data.email,
             whatsapp_number=profile_data.whatsapp_number,
             notify_threshold=profile_data.notify_threshold,
-            display_threshold=profile_data.display_threshold
+            display_threshold=profile_data.display_threshold,
+            quiet_hours_start=profile_data.quiet_hours_start,
+            quiet_hours_end=profile_data.quiet_hours_end,
+            timezone=profile_data.timezone
         )
         uow.commit()
         return updated_user
+
+
+@router.get("/notifications", response_model=List[NotificationItemSchema])
+async def get_notification_history(current_user_id: str = Depends(get_current_user_id)):
+    """
+    Retrieves in-app notification history for the current user.
+    Filters job_matches where score >= user.notify_threshold, ordered by created_at DESC.
+    """
+    from app.repositories.uow import UnitOfWork
+    from app.models.orm import JobMatchORM, JobORM, UserORM
+
+    with UnitOfWork() as uow:
+        user = uow.session.query(UserORM).filter(UserORM.id == current_user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User profile not found.")
+
+        results = uow.session.query(JobMatchORM, JobORM).join(
+            JobORM, JobMatchORM.job_id == JobORM.id
+        ).filter(
+            JobMatchORM.user_id == current_user_id,
+            JobMatchORM.score >= user.notify_threshold
+        ).order_by(JobMatchORM.created_at.desc()).all()
+
+        notifications = []
+        for match, job in results:
+            comp_name = job.company.name if job.company else "Unknown Company"
+            notifications.append({
+                "id": match.id,
+                "job_id": job.id,
+                "title": job.title,
+                "company": comp_name,
+                "score": match.score,
+                "rationale": match.rationale or "Fits your background skills.",
+                "url": job.url,
+                "created_at": match.created_at,
+                "notified_at": match.notified_at
+            })
+        return notifications
+
 
 
 class TokenRotateConfirm(BaseModel):

@@ -1,0 +1,15 @@
+[Unit]
+Description=JobLens Notifier Service (WhatsApp & Email dispatch)
+After=network.target redis.service joblens-api.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/joblens/backend
+ExecStart=/opt/joblens/backend/.venv/bin/python -m app.notifier
+Restart=always
+RestartSec=5
+User=joblens
+EnvironmentFile=/opt/joblens/backend/.env
+
+[Install]
+WantedBy=multi-user.target

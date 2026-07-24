@@ -90,16 +90,23 @@ def seed_if_empty(uow_factory=UnitOfWork, force_reseed: bool = False) -> None:
                 added = 0
                 for src in sources_data:
                     name = src.get("name", "")
-                    if name and name not in existing_names:
-                        src_obj = JobSourceORM(
-                            name=name,
-                            url=src.get("url", ""),
-                            is_active=src.get("is_active", True)
-                        )
-                        uow.session.add(src_obj)
-                        added += 1
+                    if name:
+                        existing_src = uow.session.query(JobSourceORM).filter(JobSourceORM.name == name).first()
+                        if not existing_src:
+                            src_obj = JobSourceORM(
+                                name=name,
+                                url=src.get("url", ""),
+                                is_active=src.get("is_active", True),
+                                poll_interval_minutes=src.get("poll_interval_minutes", 60)
+                            )
+                            uow.session.add(src_obj)
+                            added += 1
+                        else:
+                            if getattr(existing_src, "poll_interval_minutes", None) is None and "poll_interval_minutes" in src:
+                                existing_src.poll_interval_minutes = src["poll_interval_minutes"]
                 if added:
                     logger.info(f"Seeded {added} new job source(s) into JobSourceORM.")
+
 
             uow.commit()
             logger.info(f"Successfully seeded/updated {count} job postings in PostgreSQL.")

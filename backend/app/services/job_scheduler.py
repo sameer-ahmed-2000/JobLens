@@ -51,11 +51,11 @@ class JobScheduler:
             self._thread.join(timeout=3.0)
         logger.info("JobScheduler stopped.")
 
-    def trigger_now(self, keywords: Optional[List[str]] = None, location: Optional[str] = None) -> Dict[str, Any]:
+    def trigger_now(self, keywords: Optional[List[str]] = None, location: Optional[str] = None, force: bool = False) -> Dict[str, Any]:
         """Manually trigger ingestion pipeline execution."""
-        logger.info("Manually triggering live job ingestion pipeline...")
+        logger.info("Triggering live job ingestion pipeline (evaluating per-source poll intervals)...")
         self.last_run = datetime.utcnow()
-        stats = run_ingestion_pipeline(keywords=keywords, location=location)
+        stats = run_ingestion_pipeline(keywords=keywords, location=location, force=force)
         self.last_stats = stats
         return stats
 
@@ -77,30 +77,30 @@ class JobScheduler:
 
         logger.info(f"Triggering resume-driven live search with keywords={keywords}, location={location}...")
         self.last_live_search = datetime.utcnow()
-        stats = run_ingestion_pipeline(keywords=keywords, location=location)
+        stats = run_ingestion_pipeline(keywords=keywords, location=location, force=force)
         self.last_stats = stats
         return stats
 
     def _run_loop(self, run_immediately: bool) -> None:
         if run_immediately:
             try:
-                self.trigger_now()
+                self.trigger_now(force=True)
             except Exception as e:
                 logger.error(f"Error during initial scheduler ingestion run: {e}", exc_info=True)
 
         while self._running:
-            # Sleep in 1-second chunks so we can stop cleanly
-            interval_seconds = self.interval_minutes * 60
-            for _ in range(interval_seconds):
+            # Ticks every 60s; per-source poll_interval_minutes in pipeline.py decides which sources fetch
+            for _ in range(60):
                 if not self._running:
                     break
                 time.sleep(1.0)
             
             if self._running:
                 try:
-                    self.trigger_now()
+                    self.trigger_now(force=False)
                 except Exception as e:
                     logger.error(f"Error during scheduled ingestion run: {e}", exc_info=True)
+
 
     def get_status(self) -> Dict[str, Any]:
         return {

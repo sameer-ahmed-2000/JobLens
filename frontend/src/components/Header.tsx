@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { SparklesIcon, SettingsIcon, XIcon } from './icons';
+import { SignupModal } from './SignupModal';
 import { getProfile, updateProfile } from '../services/api';
 import type { UserProfile } from '../types';
 
@@ -10,6 +11,7 @@ export const Header: React.FC = () => {
   });
   const [isEditing, setIsEditing] = useState(false);
   const [tempToken, setTempToken] = useState(token);
+  const [isSignupOpen, setIsSignupOpen] = useState(false);
 
   // Settings profile states
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -31,6 +33,13 @@ export const Header: React.FC = () => {
       window.location.reload();
     }
   };
+
+  const handleSignupSuccess = (newToken: string) => {
+    sessionStorage.setItem('joblens_auth_token', newToken);
+    setToken(newToken);
+    window.location.reload();
+  };
+
 
   const handleOpenSettings = async () => {
     setIsSettingsOpen(true);
@@ -160,6 +169,15 @@ export const Header: React.FC = () => {
               )}
             </div>
 
+            {/* Sign Up button */}
+            <button
+              onClick={() => setIsSignupOpen(true)}
+              className="flex items-center gap-1.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold hover:from-indigo-700 hover:to-blue-700 transition-all cursor-pointer shadow-xs"
+            >
+              <SparklesIcon size={14} />
+              <span>Sign Up</span>
+            </button>
+
             {/* Settings button */}
             <button
               onClick={handleOpenSettings}
@@ -168,6 +186,7 @@ export const Header: React.FC = () => {
               <SettingsIcon size={14} className="text-gray-500 hover:rotate-45 transition-transform" />
               <span>Settings</span>
             </button>
+
 
             {/* Navigation Tabs */}
             <div className="flex items-center space-x-1 bg-gray-50 p-1 rounded-xl border border-gray-200">
@@ -341,9 +360,14 @@ export const Header: React.FC = () => {
 
             </form>
           </div>
-        </div>
-      )}
+      {/* Signup Modal */}
+      <SignupModal
+        isOpen={isSignupOpen}
+        onClose={() => setIsSignupOpen(false)}
+        onSuccess={handleSignupSuccess}
+      />
     </header>
   );
 };
+
 

@@ -1,0 +1,15 @@
+[Unit]
+Description=JobLens API + embedded background workers
+After=network.target postgresql.service redis.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/joblens/backend
+ExecStart=/opt/joblens/backend/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=5
+User=joblens
+EnvironmentFile=/opt/joblens/backend/.env
+
+[Install]
+WantedBy=multi-user.target

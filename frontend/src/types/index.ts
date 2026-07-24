@@ -112,7 +112,24 @@ export interface UserProfile {
   name: string;
   email: string;
   whatsapp_number?: string;
+
   notify_threshold: number;
   display_threshold: number;
+  quiet_hours_start?: string;
+  quiet_hours_end?: string;
+  timezone?: string;
 }
+
+export interface NotificationItem {
+  id: string;
+  job_id: string;
+  title: string;
+  company: string;
+  score: number;
+  rationale?: string;
+  url?: string;
+  created_at: string;
+  notified_at?: string;
+}
+
 

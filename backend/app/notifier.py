@@ -10,6 +10,8 @@ from email.mime.multipart import MIMEMultipart
 from concurrent.futures import ThreadPoolExecutor
 import httpx
 import redis
+from typing import Optional
+
 
 # Ensure backend directory is in sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -29,6 +31,30 @@ logger = logging.getLogger("notifier")
 # This must happen after basicConfig() so the handler exists.
 from app.log_context import CorrelationIdFilter, set_correlation_id
 logging.getLogger().addFilter(CorrelationIdFilter())
+
+from datetime import datetime
+
+def is_in_quiet_hours(quiet_start: Optional[str], quiet_end: Optional[str], tz_name: Optional[str]) -> bool:
+    if not quiet_start or not quiet_end:
+        return False
+    try:
+        import zoneinfo
+        from datetime import datetime as dt, time as dtime
+        tz = zoneinfo.ZoneInfo(tz_name or "Asia/Kolkata")
+        user_now = dt.now(tz).time()
+        sh, sm = map(int, quiet_start.strip().split(":"))
+        eh, em = map(int, quiet_end.strip().split(":"))
+        st = dtime(sh, sm)
+        et = dtime(eh, em)
+
+        if st <= et:
+            return st <= user_now <= et
+        else:
+            return user_now >= st or user_now <= et
+    except Exception as e:
+        logger.warning(f"Error evaluating quiet hours ({quiet_start}-{quiet_end} {tz_name}): {e}")
+        return False
+
 
 class Notifier:
     def __init__(self):
@@ -105,13 +131,24 @@ class Notifier:
             whatsapp_number = user.whatsapp_number
             notify_threshold = user.notify_threshold
             user_name = user.name
+            quiet_hours_start = user.quiet_hours_start
+            quiet_hours_end = user.quiet_hours_end
+            user_tz = user.timezone or "Asia/Kolkata"
 
         # 4. Check against notify threshold
         if score < notify_threshold:
             logger.info(f"Score {score} is below user {user_id} notify_threshold {notify_threshold}. Skipping alert.")
             return
 
-        # 5. Deduplication check FIRST to prevent hot-retries from burning rate limits
+        # 5. Check Quiet Hours before sending live alerts
+        if is_in_quiet_hours(quiet_hours_start, quiet_hours_end, user_tz):
+            logger.info(
+                f"User {user_id} is currently in quiet hours ({quiet_hours_start}-{quiet_hours_end} {user_tz}). "
+                f"Suppressing live email/WhatsApp alert (match recorded in DB notification history)."
+            )
+            return
+
+        # 6. Deduplication check FIRST to prevent hot-retries from burning rate limits
         dedup_key = f"notified:{user_id}"
         try:
             added = self.redis_client.sadd(dedup_key, job_match_id)
@@ -123,9 +160,8 @@ class Notifier:
                 return
         except Exception as e:
             logger.error(f"Deduplication redis check failed: {e}")
-            # In case of Redis errors, do not fail silently, but proceed to ensure alert is sent.
 
-        # 6. Rate Limit check SECOND
+        # 7. Rate Limit check SECOND
         rate_key = f"notify:rate:{user_id}"
         try:
             count = self.redis_client.incr(rate_key)
@@ -137,7 +173,7 @@ class Notifier:
         except Exception as e:
             logger.error(f"Rate limiting redis check failed: {e}")
 
-        # 7. Fetch or generate rationale teaser
+        # 8. Fetch or generate rationale teaser
         rationale = None
         with UnitOfWork() as uow:
             match = uow.session.query(JobMatchORM).filter(JobMatchORM.id == job_match_id).first()
@@ -147,7 +183,6 @@ class Notifier:
                     # Generate rationale teaser synchronously in this thread
                     job = uow.session.query(JobORM).filter(JobORM.id == match.job_id).first()
                     if job:
-                        # Call LLM
                         active_resume = uow.resumes.get_active(user_id)
                         if active_resume:
                             skills_source = active_resume.get("skills") or active_resume.get("parsed_skills") or []
@@ -178,8 +213,7 @@ Do not invent experience."""
         if not rationale:
             rationale = "Fits your background skills."
 
-        # 8. Send Notification with try/except exception isolation
-        # Formulate message template
+        # 9. Send Notification with try/except exception isolation
         subject = f"JobLens Match Alert: {title} at {company}"
         message = (
             f"Hi {user_name},\n\n"
@@ -192,15 +226,26 @@ Do not invent experience."""
         )
 
         try:
+            dispatched = False
             if whatsapp_number:
                 success = self.send_whatsapp(whatsapp_number, message)
                 if not success:
                     logger.warning("WhatsApp failed, falling back to email")
-                    self.send_email(email, subject, message)
+                    dispatched = self.send_email(email, subject, message)
+                else:
+                    dispatched = True
             else:
-                self.send_email(email, subject, message)
+                dispatched = self.send_email(email, subject, message)
+
+            if dispatched:
+                with UnitOfWork() as uow:
+                    m = uow.session.query(JobMatchORM).filter(JobMatchORM.id == job_match_id).first()
+                    if m:
+                        m.notified_at = datetime.utcnow()
+                        uow.commit()
         except Exception as e:
             logger.error(f"Failed to dispatch alert to user {user_id}: {e}", exc_info=True)
+
 
     def send_whatsapp(self, number: str, message: str) -> bool:
         token = settings.whatsapp_api_token

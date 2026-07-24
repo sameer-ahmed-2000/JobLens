@@ -56,6 +56,9 @@ class UserORM(Base):
     notify_threshold = Column(Float, default=0.85, nullable=False)
     display_threshold = Column(Float, default=0.7, nullable=False)
     token_hash = Column(String, unique=True, index=True, nullable=True)
+    quiet_hours_start = Column(String, nullable=True)
+    quiet_hours_end = Column(String, nullable=True)
+    timezone = Column(String, nullable=True, default="Asia/Kolkata")
     created_at = Column(DateTime, default=datetime.utcnow)
 
     resumes = relationship("ResumeORM", back_populates="user", cascade="all, delete-orphan")
@@ -95,7 +98,9 @@ class JobMatchORM(Base):
     score = Column(Float, nullable=False)
     rationale = Column(Text, nullable=True)
     status = Column(String, default="new", nullable=False)  # new, viewed, applied, dismissed
+    notified_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
 
     __table_args__ = (
         UniqueConstraint("user_id", "job_id", name="uq_user_job_match"),
@@ -188,6 +193,8 @@ class JobSourceORM(Base):
     url = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     last_fetched_at = Column(DateTime, nullable=True)
+    poll_interval_minutes = Column(Integer, nullable=True, default=60)
+
 
 
 class InterviewNoteORM(Base):

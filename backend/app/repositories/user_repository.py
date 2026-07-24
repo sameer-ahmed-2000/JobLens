@@ -32,7 +32,10 @@ class UserRepository:
         whatsapp_number: Optional[str] = None,
         notify_threshold: float = 0.85,
         display_threshold: float = 0.70,
-        token_hash: Optional[str] = None
+        token_hash: Optional[str] = None,
+        quiet_hours_start: Optional[str] = None,
+        quiet_hours_end: Optional[str] = None,
+        timezone: Optional[str] = "Asia/Kolkata"
     ) -> Dict[str, Any]:
         user = UserORM(
             name=name,
@@ -40,7 +43,10 @@ class UserRepository:
             whatsapp_number=whatsapp_number,
             notify_threshold=notify_threshold,
             display_threshold=display_threshold,
-            token_hash=token_hash
+            token_hash=token_hash,
+            quiet_hours_start=quiet_hours_start,
+            quiet_hours_end=quiet_hours_end,
+            timezone=timezone
         )
         if user_id:
             user.id = user_id
@@ -64,7 +70,10 @@ class UserRepository:
         email: Optional[str] = None,
         whatsapp_number: Optional[str] = None,
         notify_threshold: Optional[float] = None,
-        display_threshold: Optional[float] = None
+        display_threshold: Optional[float] = None,
+        quiet_hours_start: Optional[str] = None,
+        quiet_hours_end: Optional[str] = None,
+        timezone: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
         user = self.session.query(UserORM).filter(UserORM.id == user_id).first()
         if not user:
@@ -78,6 +87,12 @@ class UserRepository:
             user.notify_threshold = notify_threshold
         if display_threshold is not None:
             user.display_threshold = display_threshold
+        if quiet_hours_start is not None:
+            user.quiet_hours_start = quiet_hours_start
+        if quiet_hours_end is not None:
+            user.quiet_hours_end = quiet_hours_end
+        if timezone is not None:
+            user.timezone = timezone
         self.session.flush()
         return self._to_dict(user)
 
@@ -90,5 +105,9 @@ class UserRepository:
             "notify_threshold": user.notify_threshold,
             "display_threshold": user.display_threshold,
             "token_hash": user.token_hash,
+            "quiet_hours_start": user.quiet_hours_start,
+            "quiet_hours_end": user.quiet_hours_end,
+            "timezone": user.timezone,
             "created_at": user.created_at
         }
+

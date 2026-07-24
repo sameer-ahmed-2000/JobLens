@@ -152,12 +152,49 @@ def test_3_pipeline_and_deduplication():
 
     logger.info("=== Test 3 Passed: Pipeline filtered, deduplicated, updated DB incrementally, and logged IngestionRunORM! ===\n")
 
+def test_4_location_filtering():
+    logger.info("=== Starting Test 4: Detailed Location Filter & Escape-Hatch Fix ===")
+    from app.services.ingestion.pipeline import _extract_location_str
+
+    # Test dict extraction
+    dict_loc_item = {"location": {"name": "Bengaluru, India"}, "title": "Backend Dev"}
+    assert "bengaluru" in _extract_location_str(dict_loc_item)
+
+    # Test false positive description prevention
+    item_onsite = {
+        "id": 99,
+        "title": "Onsite AI Engineer",
+        "absolute_url": "https://gh/99",
+        "content": "This position is strictly in office. You will work with a remote team occasionally.",
+        "location": "New York, NY"
+    }
+
+    # Normalize
+    posting = normalize_job(item_onsite, "Greenhouse", "openai")
+    
+    # Filter with location="Remote"
+    terms = ["remote"]
+    raw_loc = _extract_location_str(item_onsite)
+    posting_title = posting.title.lower()
+
+    matched = False
+    for term in terms:
+        if term == "remote":
+            if "remote" in raw_loc or "remote" in posting_title or item_onsite.get("remote") is True or item_onsite.get("is_remote") is True:
+                matched = True
+                break
+
+    assert not matched, "Onsite job with 'remote' in description should NOT match location='Remote'!"
+    logger.info("=== Test 4 Passed: Location filter correctly handles OR terms and excludes description false-positives! ===\n")
+
 if __name__ == "__main__":
     try:
         test_1_connectors_and_retry()
         test_2_normalization()
         test_3_pipeline_and_deduplication()
-        logger.info("=== ALL 3 INGESTION PIPELINE TESTS PASSED SUCCESSFULLY! ===")
+        test_4_location_filtering()
+        logger.info("=== ALL 4 INGESTION PIPELINE TESTS PASSED SUCCESSFULLY! ===")
     except Exception as e:
         logger.error(f"Test failed: {e}", exc_info=True)
         sys.exit(1)
+

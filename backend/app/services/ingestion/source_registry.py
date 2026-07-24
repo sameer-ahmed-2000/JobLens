@@ -23,9 +23,12 @@ class SourceRegistry:
                         "name": s.name,
                         "source_type": source_type,
                         "board": board or s.url,
-                        "url": s.url
+                        "url": s.url,
+                        "last_fetched_at": s.last_fetched_at,
+                        "poll_interval_minutes": getattr(s, "poll_interval_minutes", 60) or 60
                     })
                 return result
+
         except Exception as e:
             logger.error(f"Failed to load active sources from registry: {e}")
             return []

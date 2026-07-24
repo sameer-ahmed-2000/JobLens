@@ -1,15 +1,15 @@
 [
-  {"name": "Greenhouse:openai", "url": "openai", "is_active": false},
-  {"name": "Greenhouse:anthropic", "url": "anthropic", "is_active": true},
-  {"name": "Greenhouse:stripe", "url": "stripe", "is_active": true},
-  {"name": "Lever:netflix", "url": "netflix", "is_active": true},
-  {"name": "Lever:spotify", "url": "spotify", "is_active": true},
-  {"name": "Lever:plaid", "url": "plaid", "is_active": true},
-  {"name": "Ashby:vercel", "url": "vercel", "is_active": true},
-  {"name": "Ashby:notion", "url": "notion", "is_active": true},
-  {"name": "Ashby:linear", "url": "linear", "is_active": true},
-  {"name": "Adzuna:search", "url": "aggregator", "is_active": true},
-  {"name": "Remotive:search", "url": "aggregator", "is_active": true},
-  {"name": "Arbeitnow:search", "url": "aggregator", "is_active": true},
-  {"name": "Jooble:search", "url": "aggregator", "is_active": true}
+  {"name": "Greenhouse:openai", "url": "openai", "is_active": false, "poll_interval_minutes": 60},
+  {"name": "Greenhouse:anthropic", "url": "anthropic", "is_active": true, "poll_interval_minutes": 60},
+  {"name": "Greenhouse:stripe", "url": "stripe", "is_active": true, "poll_interval_minutes": 60},
+  {"name": "Lever:netflix", "url": "netflix", "is_active": true, "poll_interval_minutes": 60},
+  {"name": "Lever:spotify", "url": "spotify", "is_active": true, "poll_interval_minutes": 60},
+  {"name": "Lever:plaid", "url": "plaid", "is_active": true, "poll_interval_minutes": 60},
+  {"name": "Ashby:vercel", "url": "vercel", "is_active": true, "poll_interval_minutes": 60},
+  {"name": "Ashby:notion", "url": "notion", "is_active": true, "poll_interval_minutes": 60},
+  {"name": "Ashby:linear", "url": "linear", "is_active": true, "poll_interval_minutes": 60},
+  {"name": "Adzuna:search", "url": "aggregator", "is_active": true, "poll_interval_minutes": 5},
+  {"name": "Remotive:search", "url": "aggregator", "is_active": true, "poll_interval_minutes": 5},
+  {"name": "Arbeitnow:search", "url": "aggregator", "is_active": true, "poll_interval_minutes": 5},
+  {"name": "Jooble:search", "url": "aggregator", "is_active": true, "poll_interval_minutes": 5}
 ]

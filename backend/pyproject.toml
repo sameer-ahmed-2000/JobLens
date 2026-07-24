@@ -19,4 +19,5 @@ dependencies = [
     "alembic",
     "psycopg2-binary",
     "redis>=5.0",
+    "slowapi",
 ]

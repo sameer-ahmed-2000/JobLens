@@ -4,11 +4,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routes.api import router as api_router
 from app.routes.applications import router as applications_router
 from app.routes.dashboard import router as dashboard_router
+from app.routes.auth import router as auth_router
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
+from app.rate_limiter import limiter
+
 app = FastAPI(title="JobLens API", version="0.1.0")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # --- CORS ---
 # Origins are read from FRONTEND_URL (comma-separated for multi-origin support,
@@ -25,11 +32,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 from app.services.seeder import seed_if_empty
 
+app.include_router(auth_router, prefix="/api")
 app.include_router(api_router, prefix="/api")
 app.include_router(applications_router, prefix="/api")
 app.include_router(dashboard_router, prefix="/api")
+
 
 
 @app.on_event("startup")

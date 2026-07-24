@@ -17,7 +17,34 @@ from app.nodes.normalize import normalize_text
 
 logger = logging.getLogger("ingestion_pipeline")
 
-def run_ingestion_pipeline(keywords: Optional[List[str]] = None, location: Optional[str] = None) -> Dict[str, Any]:
+def _extract_location_str(raw_item: Dict[str, Any]) -> str:
+    loc_parts = []
+    loc_val = raw_item.get("location")
+    if isinstance(loc_val, dict):
+        loc_parts.append(str(loc_val.get("name") or loc_val.get("display_name") or ""))
+    elif isinstance(loc_val, str):
+        loc_parts.append(loc_val)
+
+    cats = raw_item.get("categories")
+    if isinstance(cats, dict) and cats.get("location"):
+        loc_parts.append(str(cats.get("location")))
+
+    if raw_item.get("candidate_required_location"):
+        loc_parts.append(str(raw_item.get("candidate_required_location")))
+
+    if raw_item.get("address"):
+        loc_parts.append(str(raw_item.get("address")))
+
+    if raw_item.get("workplace_type"):
+        loc_parts.append(str(raw_item.get("workplace_type")))
+
+    if raw_item.get("remote") is True or raw_item.get("is_remote") is True:
+        loc_parts.append("remote")
+
+    return " ".join([p for p in loc_parts if p]).lower()
+
+
+def run_ingestion_pipeline(keywords: Optional[List[str]] = None, location: Optional[str] = None, force: bool = False) -> Dict[str, Any]:
     """
     Execute live ingestion across enabled sources in registry.
     Connectors fetch raw jobs -> Pipeline filters & normalizes -> Deterministic Deduplication -> Incremental PostgreSQL update -> Enqueue for embedding.
@@ -81,6 +108,17 @@ def run_ingestion_pipeline(keywords: Optional[List[str]] = None, location: Optio
             logger.info(f"Skipping aggregator source '{src['name']}': no keywords supplied.")
             continue
 
+        # Per-source cadence check: skip if polled too recently unless forced
+        if not force and src.get("last_fetched_at"):
+            last_fetched = src["last_fetched_at"]
+            if isinstance(last_fetched, datetime):
+                elapsed_min = (datetime.utcnow() - last_fetched).total_seconds() / 60.0
+                poll_interval = src.get("poll_interval_minutes") or 60
+                if elapsed_min < poll_interval:
+                    logger.info(f"Skipping source '{src['name']}': fetched {elapsed_min:.1f}m ago (cadence {poll_interval}m).")
+                    continue
+
+
         connector = connectors_map.get(source_type)
         if not connector:
             logger.warning(f"No connector implemented for source type '{source_type}'. Skipping.")
@@ -115,17 +153,16 @@ def run_ingestion_pipeline(keywords: Optional[List[str]] = None, location: Optio
                 if not any(kw.lower() in text_to_search for kw in keywords):
                     continue
 
-            # 2. Location filtering
+            # 2. Location filtering (OR matching across terms; no description search for 'remote' to avoid false positives)
             if location:
                 terms = [t.strip().lower() for t in location.split(",") if t.strip()]
-                raw_loc = str(raw_item.get("location", "") or raw_item.get("categories", {}).get("location", "") or raw_item.get("address", "")).lower()
+                raw_loc = _extract_location_str(raw_item)
                 posting_title = posting.title.lower()
-                posting_desc = posting.description.lower()
 
                 matched = False
                 for term in terms:
                     if term == "remote":
-                        if getattr(posting, "remote", False) or "remote" in raw_loc or "remote" in posting_title or "remote" in posting_desc:
+                        if "remote" in raw_loc or "remote" in posting_title or raw_item.get("remote") is True or raw_item.get("is_remote") is True:
                             matched = True
                             break
                     else:
@@ -199,7 +236,12 @@ def run_ingestion_pipeline(keywords: Optional[List[str]] = None, location: Optio
                 duration_ms=res.duration * 1000.0,
                 status="Success" if failures == 0 else "Partial"
             )
+            from app.models.orm import JobSourceORM
+            js = uow.session.query(JobSourceORM).filter(JobSourceORM.name == src["name"]).first()
+            if js:
+                js.last_fetched_at = datetime.utcnow()
             uow.commit()
+
 
         total_fetched += res.jobs_fetched
         total_inserted += inserted

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 # Shared / Common
 class Skill(BaseModel):
@@ -73,6 +73,9 @@ class UserProfileSchema(BaseModel):
     whatsapp_number: Optional[str] = None
     notify_threshold: float
     display_threshold: float
+    quiet_hours_start: Optional[str] = None
+    quiet_hours_end: Optional[str] = None
+    timezone: Optional[str] = "Asia/Kolkata"
 
 class UserProfileUpdateSchema(BaseModel):
     name: Optional[str] = None
@@ -80,3 +83,33 @@ class UserProfileUpdateSchema(BaseModel):
     whatsapp_number: Optional[str] = None
     notify_threshold: Optional[float] = None
     display_threshold: Optional[float] = None
+    quiet_hours_start: Optional[str] = None
+    quiet_hours_end: Optional[str] = None
+    timezone: Optional[str] = None
+
+class NotificationItemSchema(BaseModel):
+    id: str
+    job_id: str
+    title: str
+    company: str
+    score: float
+    rationale: Optional[str] = None
+    url: Optional[str] = None
+    created_at: Any
+    notified_at: Optional[Any] = None
+
+
+class SignupRequest(BaseModel):
+    name: str
+    email: str
+    invite_code: str
+    whatsapp_number: Optional[str] = None
+    title: Optional[str] = "Software Engineer"
+    years_experience: Optional[float] = 0.0
+    skills: Optional[List[str]] = []
+    projects: Optional[List[Dict[str, Any]]] = []
+
+class SignupResponse(BaseModel):
+    user: UserProfileSchema
+    raw_token: str
+

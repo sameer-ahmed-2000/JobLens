@@ -1,5 +1,6 @@
 import axios from 'axios';
-import type { ScoredPosting, GapReport, GapReportRequest, Application, InterviewNote, DashboardMetrics, ApplicationStatus, UserProfile } from '../types';
+import type { ScoredPosting, GapReport, GapReportRequest, Application, InterviewNote, DashboardMetrics, ApplicationStatus, UserProfile, NotificationItem } from '../types';
+
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -105,6 +106,29 @@ export const updateProfile = async (profile: Partial<UserProfile>): Promise<User
   const response = await apiClient.put<UserProfile>('/api/profile', profile);
   return response.data;
 };
+
+export interface SignupData {
+  name: string;
+  email: string;
+  invite_code: string;
+  whatsapp_number?: string;
+  title?: string;
+  years_experience?: number;
+  skills?: string[];
+  projects?: Array<{ name: string; description: string; technologies: string[] }>;
+}
+
+export const signupUser = async (data: SignupData): Promise<{ user: UserProfile; raw_token: string }> => {
+  const response = await apiClient.post<{ user: UserProfile; raw_token: string }>('/api/auth/signup', data);
+  return response.data;
+};
+
+export const getNotifications = async (): Promise<NotificationItem[]> => {
+  const response = await apiClient.get<NotificationItem[]>('/api/notifications');
+  return response.data;
+};
+
+
 
 export const QUERY_CONFIG = {
   staleTime: 5 * 60 * 1000, // 5 minutes as recommended
