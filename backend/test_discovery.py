@@ -52,14 +52,15 @@ def test_phase_2a():
     for i, sp in enumerate(scored[:3], 1):
         logger.info(f"#{i} | Score: {sp.overall_score:.4f} | Title: {sp.posting.title} | Company: {sp.posting.company}")
     logger.info("=== Phase 2A Verification Passed Successfully! ===\n")
-    return state
 
 def test_phase_2b():
     logger.info("=== Starting Phase 2B Verification ===")
     import asyncio
+    from unittest.mock import patch
     from app.services.discovery_service import discovery_service
 
-    scored = asyncio.run(discovery_service.get_ranked_postings())
+    with patch("app.services.llm_router.llm_router.generate", return_value="Strong fit for AI role."):
+        scored = asyncio.run(discovery_service.get_ranked_postings())
     assert len(scored) > 0, "DiscoveryService returned empty list."
 
     logger.info(f"Step 1 (Full Graph Execution): Successfully retrieved {len(scored)} ranked postings.")
@@ -68,7 +69,6 @@ def test_phase_2b():
 
     assert scored[0].fit_rationale is not None, "fit_rationale should not be None."
     logger.info("=== Phase 2B Verification Passed Successfully! ===\n")
-    return scored
 
 if __name__ == "__main__":
     try:

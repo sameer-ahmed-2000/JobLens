@@ -15,13 +15,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 test_engine = create_engine("sqlite:///test_sse.db", connect_args={"check_same_thread": False})
 TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
-# Monkey-patch SessionLocal globally before importing main application to redirect database operations to SQLite
-import app.database
-app.database.SessionLocal = TestSessionLocal
-
-import app.repositories.uow
-app.repositories.uow.SessionLocal = TestSessionLocal
-
 from app.database import Base
 from app.repositories.uow import UnitOfWork
 from app.services.seeder import seed_if_empty
@@ -36,13 +29,27 @@ class SQLiteUnitOfWork(UnitOfWork):
 from fastapi.testclient import TestClient
 client = TestClient(app)
 
+from app.rate_limiter import limiter
+
 @pytest.fixture(autouse=True, scope="module")
 def setup_database():
     """Create tables and seed database before running module tests."""
+    import app.database
+    import app.repositories.uow
+    orig_db_sl = getattr(app.database, "SessionLocal", None)
+    orig_uow_sl = getattr(app.repositories.uow, "SessionLocal", None)
+    app.database.SessionLocal = TestSessionLocal
+    app.repositories.uow.SessionLocal = TestSessionLocal
+
+    limiter.enabled = False
     Base.metadata.create_all(bind=test_engine)
     seed_if_empty(uow_factory=SQLiteUnitOfWork)
     yield
     Base.metadata.drop_all(bind=test_engine)
+    if orig_db_sl:
+        app.database.SessionLocal = orig_db_sl
+    if orig_uow_sl:
+        app.repositories.uow.SessionLocal = orig_uow_sl
     if os.path.exists("test_sse.db"):
         try:
             os.remove("test_sse.db")

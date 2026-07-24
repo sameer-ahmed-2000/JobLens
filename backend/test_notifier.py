@@ -17,13 +17,6 @@ test_engine = create_engine(
 )
 TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
-# Monkey-patch BEFORE any app modules are imported
-import app.database
-app.database.SessionLocal = TestSessionLocal
-
-import app.repositories.uow
-app.repositories.uow.SessionLocal = TestSessionLocal
-
 from app.database import Base
 from app.repositories.uow import UnitOfWork
 from app.services.seeder import seed_if_empty
@@ -47,6 +40,13 @@ def setup_database():
     _build_notifier_with_fixtures() is never called more than once, avoiding
     UNIQUE constraint violations on jobs.url across repeated test functions.
     """
+    import app.database
+    import app.repositories.uow
+    orig_db_sl = getattr(app.database, "SessionLocal", None)
+    orig_uow_sl = getattr(app.repositories.uow, "SessionLocal", None)
+    app.database.SessionLocal = TestSessionLocal
+    app.repositories.uow.SessionLocal = TestSessionLocal
+
     Base.metadata.create_all(bind=test_engine)
     seed_if_empty(uow_factory=SQLiteUnitOfWork)
 
@@ -83,6 +83,10 @@ def setup_database():
     yield
 
     Base.metadata.drop_all(bind=test_engine)
+    if orig_db_sl:
+        app.database.SessionLocal = orig_db_sl
+    if orig_uow_sl:
+        app.repositories.uow.SessionLocal = orig_uow_sl
     try:
         os.remove("test_notifier.db")
     except Exception:

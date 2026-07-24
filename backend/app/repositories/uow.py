@@ -11,7 +11,10 @@ from app.repositories.ingestion_run_repository import IngestionRunRepository
 from app.repositories.job_match_repository import JobMatchRepository
 
 class UnitOfWork:
-    def __init__(self, session_factory=SessionLocal):
+    def __init__(self, session_factory=None):
+        if session_factory is None:
+            import app.database
+            session_factory = app.database.SessionLocal
         self.session_factory = session_factory
         self.session: Session = None
 

@@ -177,11 +177,14 @@ def test_lazy_rationale_and_ownership():
         match1_id = match1.id
         match2_id = match2.id
         
+    from starlette.requests import Request
+    dummy_req = Request(scope={"type": "http", "method": "GET", "path": "/api/matches/test", "headers": []})
+
     with patch("app.repositories.uow.UnitOfWork", TestUnitOfWork), \
          patch("app.services.llm_router.llm_router.generate", return_value="Generates typescript rationale.") as mock_generate:
          
         # 1. User 1 accesses Match 1 (Success + Generate rationale)
-        res = asyncio.run(get_match_detail(match_id=match1_id, current_user_id=user1["id"]))
+        res = asyncio.run(get_match_detail(request=dummy_req, match_id=match1_id, current_user_id=user1["id"]))
         assert res["fit_rationale"] == "Generates typescript rationale."
         mock_generate.assert_called_once()
         
@@ -192,13 +195,13 @@ def test_lazy_rationale_and_ownership():
             
         # 2. User 1 accesses Match 1 again (Cached - no LLM call)
         mock_generate.reset_mock()
-        res_cached = asyncio.run(get_match_detail(match_id=match1_id, current_user_id=user1["id"]))
+        res_cached = asyncio.run(get_match_detail(request=dummy_req, match_id=match1_id, current_user_id=user1["id"]))
         assert res_cached["fit_rationale"] == "Generates typescript rationale."
         mock_generate.assert_not_called()
         
         # 3. User 2 accesses Match 1 (Ownership violation -> raise 404, not 403)
         try:
-            asyncio.run(get_match_detail(match_id=match1_id, current_user_id=user2["id"]))
+            asyncio.run(get_match_detail(request=dummy_req, match_id=match1_id, current_user_id=user2["id"]))
             assert False, "Should raise 404 error on ownership mismatch."
         except HTTPException as exc:
             assert exc.status_code == 404

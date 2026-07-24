@@ -11,13 +11,6 @@ TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_eng
 # 2. Ensure backend directory is in sys.path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# 3. Monkey-patch SessionLocal globally before importing main application
-import app.database
-app.database.SessionLocal = TestSessionLocal
-
-import app.repositories.uow
-app.repositories.uow.SessionLocal = TestSessionLocal
-
 from app.main import app
 from app.database import Base
 from app.repositories.uow import UnitOfWork
@@ -32,11 +25,22 @@ client.headers.update({"Authorization": "Bearer default-user-token"})
 @pytest.fixture(autouse=True, scope="module")
 def setup_database():
     """Create tables and seed database before running module tests."""
+    import app.database
+    import app.repositories.uow
+    orig_db_sl = getattr(app.database, "SessionLocal", None)
+    orig_uow_sl = getattr(app.repositories.uow, "SessionLocal", None)
+    app.database.SessionLocal = TestSessionLocal
+    app.repositories.uow.SessionLocal = TestSessionLocal
+
     Base.metadata.create_all(bind=test_engine)
     # Seed the test SQLite database
     seed_if_empty(uow_factory=UnitOfWork)
     yield
     Base.metadata.drop_all(bind=test_engine)
+    if orig_db_sl:
+        app.database.SessionLocal = orig_db_sl
+    if orig_uow_sl:
+        app.repositories.uow.SessionLocal = orig_uow_sl
     # Cleanup test db file
     if os.path.exists("test_dashboard.db"):
         try:
@@ -69,3 +73,7 @@ def test_dashboard_metrics():
     for key in expected_keys:
         assert key in metrics
         assert isinstance(metrics[key], (int, float))
+
+
+if __name__ == "__main__":
+    sys.exit(pytest.main([__file__]))

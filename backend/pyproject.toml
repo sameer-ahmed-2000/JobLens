@@ -20,4 +20,6 @@ dependencies = [
     "psycopg2-binary",
     "redis>=5.0",
     "slowapi",
+    "pytest",
+    "pytest-asyncio",
 ]
