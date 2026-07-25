@@ -104,6 +104,7 @@ class JobMatchORM(Base):
 
     __table_args__ = (
         UniqueConstraint("user_id", "job_id", name="uq_user_job_match"),
+        Index("ix_job_matches_user_score_created", "user_id", "score", "created_at"),
     )
 
 
@@ -162,7 +163,7 @@ class ApplicationORM(Base):
     id = Column(String, primary_key=True, default=generate_uuid)
     user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
     job_id = Column(String, ForeignKey("jobs.id"), nullable=False, index=True)
-    resume_id = Column(String, ForeignKey("resumes.id"), nullable=True, index=True)  # Resume snapshot for gap report versioning
+    resume_id = Column(String, ForeignKey("resumes.id", ondelete="SET NULL"), nullable=True, index=True)  # Resume snapshot for gap report versioning
     status = Column(String, default="Saved")  # Saved, Applied, Assessment, OA, Interview, Offer, Rejected, Withdrawn
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

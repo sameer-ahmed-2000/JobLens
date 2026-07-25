@@ -4,6 +4,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+_raw_db_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/joblens")
+if _raw_db_url.startswith("postgres://"):
+    _raw_db_url = _raw_db_url.replace("postgres://", "postgresql://", 1)
+
 class Settings(BaseModel):
     app_name: str = "JobLens MVP"
 
@@ -24,7 +28,7 @@ class Settings(BaseModel):
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
     top_n_rationales: int = int(os.getenv("TOP_N_RATIONALES", "10"))
-    database_url: str = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/joblens")
+    database_url: str = _raw_db_url
 
     # Real-time, resume-driven aggregator sources
     adzuna_app_id: str = os.getenv("ADZUNA_APP_ID", "")

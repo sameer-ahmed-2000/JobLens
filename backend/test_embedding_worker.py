@@ -34,6 +34,15 @@ def test_embedding_worker_processing():
         assert len(jobs) > 0
         target_job = jobs[0]
         job_id = target_job.id
+    # Clear stream if it's Redis-backed to ensure test isolation
+    if hasattr(embedding_queue, "client") and hasattr(embedding_queue, "stream_key"):
+        embedding_queue.client.delete(embedding_queue.stream_key)
+        if hasattr(embedding_queue, "retry_hash_key"):
+            embedding_queue.client.delete(embedding_queue.retry_hash_key)
+        try:
+            embedding_queue.client.xgroup_create(embedding_queue.stream_key, embedding_queue.group_name, id="$", mkstream=True)
+        except Exception:
+            pass
 
     # Enqueue job ID into embedding queue
     embedding_queue.enqueue(job_id)
@@ -47,7 +56,11 @@ def test_embedding_worker_processing():
         
         processed = worker.process_once(max_batch=5)
         assert processed == 1
-        assert embedding_queue.size() == 0
+        if embedding_queue.queue_backend == "redis":
+            pending_info = embedding_queue.client.xpending(embedding_queue.stream_key, embedding_queue.group_name)
+            assert pending_info.get("pending", 0) == 0, f"Expected 0 pending messages, got {pending_info.get('pending')}"
+        else:
+            assert embedding_queue.size() == 0
 
         # Verify DB record was updated with embedding
         from app.models.orm import JobORM

@@ -8,6 +8,7 @@ Create Date: 2026-07-17 18:00:00.000000
 from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.types import NullType
 import json
 from datetime import datetime
 
@@ -124,11 +125,10 @@ def upgrade() -> None:
     # 3. Create the New Resumes Table
     # Determine embedding column type based on DB engine
     if is_postgres:
-        embedding_col_type = sa.UserDefinedType()
         # Custom compilable VECTOR type will be handled by class compiled name, but inside migrations,
         # using the raw postgres type works best:
-        from sqlalchemy.dialects.postgresql import ARRAY
         # To support pgvector in Alembic, use raw sql or op.execute for Postgres, ARRAY or custom for sqlalchemy
+        pass
     
     # We will declare it as sa.JSON or custom type in migrations. To ensure Alembic generates clean SQL
     # on PostgreSQL, we can use sa.Text/sa.JSON for SQLite and sa.NullType or vector for PostgreSQL.
@@ -142,7 +142,7 @@ def upgrade() -> None:
         sa.Column('user_id', sa.String(), nullable=False),
         sa.Column('raw_text', sa.Text(), nullable=False),
         sa.Column('parsed_skills', sa.JSON(), nullable=False),
-        sa.Column('embedding', sa.JSON() if not is_postgres else sa.NullType(), nullable=False),
+        sa.Column('embedding', sa.JSON(), nullable=False),
         sa.Column('is_active', sa.Boolean(), nullable=False, server_default='true'),
         sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
