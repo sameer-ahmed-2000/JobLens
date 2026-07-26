@@ -49,9 +49,9 @@ class Settings(BaseModel):
     live_search_min_interval_minutes: int = int(os.getenv("LIVE_SEARCH_MIN_INTERVAL_MINUTES", "15"))
 
     # Redis configuration
-    # URL is built from components to avoid python-dotenv's unreliable ${VAR}
-    # interpolation within .env files. Set REDIS_PASSWORD, REDIS_HOST, etc.
-    # individually — never set REDIS_URL directly.
+    # If REDIS_URL is set, it will be used directly. Otherwise, the URL is built
+    # from host, port, password, and db components.
+    redis_url: str = os.getenv("REDIS_URL", "")
     redis_password: str = os.getenv("REDIS_PASSWORD", "")
     redis_host: str = os.getenv("REDIS_HOST", "localhost")
     redis_port: int = int(os.getenv("REDIS_PORT", "6379"))
@@ -77,19 +77,23 @@ class Settings(BaseModel):
     # Self-Serve Onboarding Invite Protection
     signup_invite_token: str = os.getenv("SIGNUP_INVITE_TOKEN", "joblens-beta-2026")
 
-# Build redis_url from components after Settings is instantiated.
+# Build redis_url after Settings is instantiated.
 # Must be done at module level (not inside __init__) so that load_dotenv()
 # has already been called and os.getenv() returns the real values.
+_ru = os.getenv("REDIS_URL", "")
 _rp = os.getenv("REDIS_PASSWORD", "")
 _rh = os.getenv("REDIS_HOST", "localhost")
 _rport = os.getenv("REDIS_PORT", "6379")
 _rdb = os.getenv("REDIS_DB", "0")
 
 settings = Settings()
-# Override redis_url with the programmatically constructed URL so the
-# auth credentials are always embedded correctly regardless of .env contents.
+# Override redis_url with the provided REDIS_URL or programmatic URL so the
+# credentials are always embedded correctly regardless of .env contents.
+if not _ru:
+    _ru = f"redis://:{_rp}@{_rh}:{_rport}/{_rdb}" if _rp else f"redis://{_rh}:{_rport}/{_rdb}"
+
 object.__setattr__(
     settings,
     "redis_url",
-    f"redis://:{_rp}@{_rh}:{_rport}/{_rdb}" if _rp else f"redis://{_rh}:{_rport}/{_rdb}"
+    _ru
 )

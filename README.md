@@ -9,7 +9,7 @@ JobLens is an intelligent career acceleration platform that aggregates job posti
 ## 🛠️ Technology Stack
 
 * **Backend**: Python 3.10+ managed with [`uv`](https://github.com/astral-sh/uv), FastAPI, SQLAlchemy 2.0, Alembic, Pydantic V2, LangGraph
-* **Database**: Local SQLite (or PostgreSQL/Supabase) + Redis 7 (Stream Queue & Caching)
+* **Database**: PostgreSQL (Aiven/Supabase) or local SQLite + Redis (Upstash/local Stream Queue & Caching)
 * **Frontend**: React 19, TypeScript, Vite, TailwindCSS
 * **AI / LLM Routing**: FreeModel.dev (OpenAI-compatible), Ollama (Local Llama 3), SentenceTransformers, FAISS
 
@@ -87,10 +87,12 @@ JobLens supports multiple LLM providers via `llm_router.py`:
 
 ### Step 1: Environment Setup
 
-1. **Root Environment File** (used by Docker Compose):
+1. **Root Environment File** (used by Docker Compose and local processes):
    Create a `.env` file in the root directory:
    ```env
    REDIS_PASSWORD=REDACTED_PASSWORD
+   # Or a complete Redis URL (e.g. for Upstash secure Redis):
+   REDIS_URL="rediss://default:password@host:port"
    ```
 
 2. **Backend Environment File**:
@@ -101,8 +103,10 @@ JobLens supports multiple LLM providers via `llm_router.py`:
    PORT=8000
    ENVIRONMENT=development
 
-   # Database Configuration (Local SQLite)
-   DATABASE_URL=sqlite:///./joblens.db
+   # Database Configuration (PostgreSQL / SQLite)
+   # e.g., for local SQLite: sqlite:///./joblens.db
+   # e.g., for Aiven PostgreSQL: postgresql://username:password@host:port/dbname?sslmode=require
+   DATABASE_URL=postgresql://username:password@host:port/dbname?sslmode=require
 
    # LLM Configuration
    LLM_PROVIDER=freemodel
@@ -110,7 +114,10 @@ JobLens supports multiple LLM providers via `llm_router.py`:
    FREEMODEL_BASE_URL=https://api.freemodel.dev/v1
    FREEMODEL_MODEL=auto
 
-   # Redis Configuration
+   # Redis Configuration (Supports REDIS_URL or host/port/password components)
+   # e.g., REDIS_URL=rediss://default:password@host:port
+   REDIS_URL="rediss://default:password@host:6379"
+   # Fallback components if REDIS_URL is not set:
    REDIS_HOST=localhost
    REDIS_PORT=6379
    REDIS_PASSWORD=REDACTED_PASSWORD
@@ -130,7 +137,24 @@ JobLens supports multiple LLM providers via `llm_router.py`:
 
 ---
 
+## 🐳 Quick Start: Run Everything with Docker
+
+Once you have configured the environment files in **Step 1**, you can start all services (Redis, Backend APIs with automatic database migrations, Notifier background worker, and Frontend React SPA) with a single command:
+
+```bash
+docker compose up --build
+```
+
+* **Frontend**: Accessible at [http://localhost:5173](http://localhost:5173)
+* **Backend API**: Accessible at [http://localhost:8000](http://localhost:8000)
+* **API Swagger Docs**: Accessible at [http://localhost:8000/docs](http://localhost:8000/docs)
+
+---
+
+## 🛠️ Alternative: Manual Local Execution
+
 ### Step 2: Start Redis
+
 
 Start the Redis 7 container using Docker Compose:
 ```bash
@@ -140,6 +164,7 @@ docker-compose up -d
 ```bash
 docker ps
 ```
+*(Note: If you configured a remote `REDIS_URL` such as Upstash, you can skip starting local Redis).*
 
 ---
 
@@ -153,7 +178,7 @@ docker ps
    ```bash
    uv sync
    ```
-3. Run Alembic database migrations to create local SQLite tables:
+3. Run Alembic database migrations to create database tables (SQLite/PostgreSQL):
    ```bash
    uv run alembic upgrade head
    ```

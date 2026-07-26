@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { XIcon, SparklesIcon } from './icons';
-import { signupUser, SignupData } from '../services/api';
+import { signupUser } from '../services/api';
+import type { SignupData } from '../services/api';
 import type { UserProfile } from '../types';
 
 interface SignupModalProps {

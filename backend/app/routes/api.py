@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, HTTPException, status, Request
+from fastapi import APIRouter, Depends, Query, HTTPException, status, Request, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
@@ -32,7 +32,7 @@ async def get_postings(current_user_id: str = Depends(get_current_user_id)):
 
 @router.post("/discover", response_model=List[ScoredPosting])
 @limiter.limit("10/minute")
-async def trigger_discovery(request: Request, force_live_search: bool = False, current_user_id: str = Depends(get_current_user_id)):
+async def trigger_discovery(request: Request, background_tasks: BackgroundTasks, force_live_search: bool = False, current_user_id: str = Depends(get_current_user_id)):
     """
     Triggers the discovery pipeline: first runs a resume-driven real-time
     search against aggregator sources (Adzuna/Remotive/Arbeitnow) using
@@ -44,12 +44,24 @@ async def trigger_discovery(request: Request, force_live_search: bool = False, c
     """
     from app.services.resume_index import resume_index
     from app.services.job_scheduler import job_scheduler
+    from app.services.scoring_service import scoring_service
+
+    # Refresh the active resumes cache synchronously so the newly signed up user's active resume is cached
+    try:
+        scoring_service.cache.refresh()
+    except Exception as e:
+        import logging
+        logging.getLogger("routes.api").error(f"Failed to refresh active resume cache: {e}")
 
     keywords = resume_index.get_search_keywords(user_id=current_user_id)
     if keywords:
-        job_scheduler.trigger_live_search(keywords=keywords, force=force_live_search)
+        background_tasks.add_task(
+            job_scheduler.trigger_live_search,
+            keywords=keywords,
+            force=force_live_search
+        )
 
-    return await discovery_service.get_ranked_postings(user_id=current_user_id, force_refresh=True)
+    return await discovery_service.get_ranked_postings(user_id=current_user_id, force_refresh=False)
 
 
 @router.get("/matches/{match_id}", response_model=ScoredPosting)

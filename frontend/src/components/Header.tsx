@@ -3,7 +3,6 @@ import { NavLink } from 'react-router-dom';
 import { SparklesIcon, SettingsIcon, XIcon } from './icons';
 import { SignupModal } from './SignupModal';
 import { getProfile, updateProfile } from '../services/api';
-import type { UserProfile } from '../types';
 
 export const Header: React.FC = () => {
   const [token, setToken] = useState(() => {
@@ -360,6 +359,8 @@ export const Header: React.FC = () => {
 
             </form>
           </div>
+        </div>
+      )}
       {/* Signup Modal */}
       <SignupModal
         isOpen={isSignupOpen}

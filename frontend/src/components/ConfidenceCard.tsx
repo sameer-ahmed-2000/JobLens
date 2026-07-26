@@ -89,7 +89,7 @@ export const ConfidenceCard: React.FC<ConfidenceCardProps> = ({ report }) => {
         {/* Priority */}
         <div className="bg-white/5 backdrop-blur-xs p-3 rounded-xl border border-white/10 flex flex-col justify-between">
           <p className="text-[11px] font-semibold text-indigo-300 uppercase mb-1">
-            Demo Priority
+            Match Priority
           </p>
           <div>
             <span className={`inline-block px-2.5 py-0.5 rounded-md text-xs font-bold border ${priorityBadge}`}>

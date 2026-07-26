@@ -22,4 +22,5 @@ dependencies = [
     "slowapi",
     "pytest",
     "pytest-asyncio",
+    "openai",
 ]
