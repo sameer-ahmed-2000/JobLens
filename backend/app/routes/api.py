@@ -6,9 +6,12 @@ import json
 import os
 import uuid
 import time
+import logging
 from datetime import datetime
 import redis.asyncio as aioredis
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 from app.models.schemas import ScoredPosting, GapReportRequest, GapReport, RawPosting, UserProfileSchema, UserProfileUpdateSchema, NotificationItemSchema
 
 from app.routes.auth import get_current_user_id
@@ -24,11 +27,63 @@ from app.services.discovery_service import discovery_service
 from app.services.gap_service import gap_service
 
 @router.get("/postings", response_model=List[ScoredPosting])
-async def get_postings(current_user_id: str = Depends(get_current_user_id)):
+async def get_postings(
+    min_score: Optional[float] = None,
+    limit: int = 50,
+    current_user_id: str = Depends(get_current_user_id)
+):
     """
-    Returns a list of job postings, scored and ranked against the user's resume using LangGraph.
+    Returns a list of job postings, scored and ranked against the user's resume.
+    Defaults to the user's own display_threshold and top 50 -- pass min_score=0
+    to see everything, or a higher limit for more results.
     """
-    return await discovery_service.get_ranked_postings(user_id=current_user_id, force_refresh=False)
+    return await discovery_service.get_ranked_postings(
+        user_id=current_user_id, force_refresh=False, min_score=min_score, limit=limit
+    )
+
+@router.post("/refetch")
+@limiter.limit("3/minute")
+async def refetch_jobs(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    current_user_id: str = Depends(get_current_user_id)
+):
+    """
+    User-triggered "find new jobs now" action. Unlike the older /discover
+    endpoint, this returns immediately -- the actual ingestion + scoring runs
+    in a background task, and new matches arrive via the same SSE channel
+    (job_events:{user_id}) the live dashboard already subscribes to. This
+    avoids the multi-second-to-minutes blocking behavior of running the full
+    multi-source pipeline synchronously inside the HTTP request.
+    """
+    import redis
+    from app.services.resume_index import resume_index
+    from app.services.job_scheduler import job_scheduler
+    from app.config import settings
+
+    def _run_refetch(user_id: str):
+        keywords = resume_index.get_search_keywords(user_id=user_id)
+        if not keywords:
+            logger.warning(f"Refetch skipped for {user_id}: no resume keywords available.")
+            _publish_refetch_status(user_id, "skipped_no_resume")
+            return
+        try:
+            stats = job_scheduler.trigger_live_search(keywords=keywords, force=True)
+            _publish_refetch_status(user_id, "completed", stats)
+        except Exception as e:
+            logger.error(f"Background refetch failed for {user_id}: {e}", exc_info=True)
+            _publish_refetch_status(user_id, "failed")
+
+    def _publish_refetch_status(user_id: str, status: str, stats: dict = None):
+        try:
+            client = redis.Redis.from_url(settings.redis_url, decode_responses=True)
+            payload = {"type": "refetch_status", "status": status, "stats": stats or {}}
+            client.publish(f"job_events:{user_id}", json.dumps(payload))
+        except Exception as e:
+            logger.warning(f"Could not publish refetch status for {user_id}: {e}")
+
+    background_tasks.add_task(_run_refetch, current_user_id)
+    return {"status": "started", "message": "Refetching jobs in the background -- new matches will appear live."}
 
 @router.post("/discover", response_model=List[ScoredPosting])
 @limiter.limit("10/minute")

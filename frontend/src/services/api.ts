@@ -37,6 +37,11 @@ export const getRankedPostings = async (): Promise<ScoredPosting[]> => {
   return response.data;
 };
 
+export const refetchJobs = async (): Promise<{ status: string; message: string }> => {
+  const response = await apiClient.post<{ status: string; message: string }>('/api/refetch');
+  return response.data;
+};
+
 export const generateGapReport = async (request: GapReportRequest): Promise<GapReport> => {
   const response = await apiClient.post<GapReport>('/api/gap-report', request);
   return response.data;

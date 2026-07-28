@@ -1,6 +1,6 @@
 import time
 import logging
-from typing import List
+from typing import List, Optional
 from fastapi import HTTPException
 from app.models.schemas import ScoredPosting
 from app.graphs.discovery_graph import discovery_graph
@@ -10,7 +10,10 @@ from app.repositories.uow import UnitOfWork
 logger = logging.getLogger("discovery_service")
 
 class DiscoveryService:
-    async def get_ranked_postings(self, user_id: str = "default-user-id", force_refresh: bool = False) -> List[ScoredPosting]:
+    async def get_ranked_postings(
+        self, user_id: str = "default-user-id", force_refresh: bool = False,
+        min_score: Optional[float] = None, limit: int = 50
+    ) -> List[ScoredPosting]:
         """
         Execute the LangGraph Discovery workflow and return ranked job postings.
         Utilizes JobMatchRepository cache if force_refresh=False.
@@ -22,7 +25,7 @@ class DiscoveryService:
         if not force_refresh:
             try:
                 with UnitOfWork() as uow:
-                    existing_matches = uow.job_matches.get_matches_for_user(user_id)
+                    existing_matches = uow.job_matches.get_matches_for_user(user_id, min_score=min_score, limit=limit)
                 if existing_matches:
                     logger.info(f"Found {len(existing_matches)} cached job matches for user {user_id}")
                     return [ScoredPosting(**m) for m in existing_matches]
@@ -56,7 +59,7 @@ class DiscoveryService:
         # 4. Query them back from the DB to ensure we get definitive ordering and database-driven statuses
         try:
             with UnitOfWork() as uow:
-                matches = uow.job_matches.get_matches_for_user(user_id)
+                matches = uow.job_matches.get_matches_for_user(user_id, min_score=min_score, limit=limit)
             elapsed = time.perf_counter() - t0
             logger.info(f"Discovery completed for user {user_id} in {elapsed:.2f} s")
             return [ScoredPosting(**m) for m in matches]

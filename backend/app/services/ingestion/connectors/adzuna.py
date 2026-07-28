@@ -34,7 +34,7 @@ class AdzunaConnector(BaseConnector):
         location = source_config.get("location") or settings.default_location
         country = settings.adzuna_country
 
-        what = " ".join(keywords[:5]) if keywords else ""
+        what = keywords[0] if keywords else ""
         url = f"https://api.adzuna.com/v1/api/jobs/{country}/search/1"
         params = {
             "app_id": app_id,

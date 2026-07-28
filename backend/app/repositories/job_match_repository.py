@@ -68,19 +68,32 @@ class JobMatchRepository:
                 rationale=fit_rationale
             )
 
-    def get_matches_for_user(self, user_id: str) -> List[Dict[str, Any]]:
+    def get_matches_for_user(self, user_id: str, min_score: Optional[float] = None, limit: int = 50) -> List[Dict[str, Any]]:
         """
-        Retrieve all job matches for a user, ordered by score descending, then created_at descending.
+        Retrieve job matches for a user, ordered by score descending, then created_at descending.
         Joins with the JobORM/CompanyORM tables to enrich output.
+
+        Filters to matches at/above `min_score` (defaults to the user's own
+        display_threshold if not passed) and caps result count at `limit` --
+        previously this returned every scored match ever created for the user
+        with no floor or ceiling, which meant a user with thousands of scored
+        postings saw all of them regardless of fit quality.
         """
+        from app.models.orm import UserORM
+
+        if min_score is None:
+            user = self.session.query(UserORM).filter(UserORM.id == user_id).first()
+            min_score = user.display_threshold if user else 0.7
+
         results = self.session.query(JobMatchORM, JobORM).join(
             JobORM, JobMatchORM.job_id == JobORM.id
         ).filter(
-            JobMatchORM.user_id == user_id
+            JobMatchORM.user_id == user_id,
+            JobMatchORM.score >= min_score
         ).order_by(
             JobMatchORM.score.desc(),
             JobMatchORM.created_at.desc()
-        ).all()
+        ).limit(limit).all()
 
         matches = []
         for match, job in results:

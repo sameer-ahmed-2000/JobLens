@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import type { ScoredPosting, FilterState, SortOption, GapReport as GapReportType } from '../types';
-import { getRankedPostings, generateGapReport, getMatchDetail, createStreamTicket, getMatches, QUERY_CONFIG } from '../services/api';
+import { getRankedPostings, refetchJobs, generateGapReport, getMatchDetail, createStreamTicket, getMatches, QUERY_CONFIG } from '../services/api';
 import { calculateQuickStats, getScoreValue } from '../utils/helpers';
 import { QuickStats } from '../components/QuickStats';
 import { SearchBar } from '../components/SearchBar';
@@ -22,6 +22,8 @@ const Dashboard: React.FC = () => {
   });
   const autoSelectedRef = useRef(false);
   const [newMatchIds, setNewMatchIds] = useState<string[]>([]);
+  const [isRefetching, setIsRefetching] = useState(false);
+  const [refetchMessage, setRefetchMessage] = useState<string | null>(null);
 
   // SSE connection setup with ticket-based auth & gap backfilling
   const lastSeenTimestampRef = useRef<string>(new Date().toISOString());
@@ -105,6 +107,16 @@ const Dashboard: React.FC = () => {
               });
 
               lastSeenTimestampRef.current = new Date().toISOString();
+            } else if (payload.type === 'refetch_status') {
+              setIsRefetching(false);
+              if (payload.status === 'completed') {
+                setRefetchMessage('Refresh complete -- new matches will appear above.');
+              } else if (payload.status === 'skipped_no_resume') {
+                setRefetchMessage('Add a resume before refreshing jobs.');
+              } else {
+                setRefetchMessage('Refresh failed -- try again in a moment.');
+              }
+              setTimeout(() => setRefetchMessage(null), 5000);
             }
           } catch (err) {
             console.error("Failed to parse SSE payload:", err);
@@ -302,6 +314,26 @@ const Dashboard: React.FC = () => {
           onChange={setSearchText}
           placeholder="Search jobs by title, company, LangGraph rationale, or source..."
         />
+        <button
+          type="button"
+          disabled={isRefetching}
+          onClick={async () => {
+            setIsRefetching(true);
+            setRefetchMessage(null);
+            try {
+              await refetchJobs();
+              // isRefetching stays true until the refetch_status SSE event
+              // arrives, since the actual work runs in a background task.
+            } catch (err) {
+              setIsRefetching(false);
+              setRefetchMessage('Could not start refresh -- try again.');
+              setTimeout(() => setRefetchMessage(null), 5000);
+            }
+          }}
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl text-xs font-bold transition-colors cursor-pointer focus:outline-none disabled:opacity-50 whitespace-nowrap"
+        >
+          {isRefetching ? 'Refreshing...' : '🔄 Refresh Jobs'}
+        </button>
         <FilterBar
           filters={filters}
           onChange={setFilters}
@@ -310,6 +342,12 @@ const Dashboard: React.FC = () => {
           filteredJobsCount={filteredPostings.length}
         />
       </div>
+
+      {refetchMessage && (
+        <div className="text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2">
+          {refetchMessage}
+        </div>
+      )}
 
       {/* Two-Column Layout (Refinement #12: Jobs ↓ Gap Report on mobile) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">

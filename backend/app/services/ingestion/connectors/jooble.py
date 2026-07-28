@@ -38,7 +38,7 @@ class JoobleConnector(BaseConnector):
         url = f"https://jooble.org/api/{api_key}"
         body = {}
         if keywords:
-            body["keywords"] = " ".join(keywords[:5])
+            body["keywords"] = keywords[0]
         if location:
             body["location"] = location
 
