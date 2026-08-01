@@ -5,6 +5,28 @@ import { formatPercentage, extractSkillChips, getScoreColorClass } from '../util
 import { checkApplicationExists, saveApplication } from '../services/api';
 import { BuildingIcon, ExternalLinkIcon, CheckCircleIcon } from './icons';
 
+const formatLastSeen = (dateStr?: string): string => {
+  if (!dateStr) return '';
+  try {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffTime = now.getTime() - date.getTime();
+    if (diffTime < 0) return 'Just now';
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays < 1) {
+      const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
+      if (diffHours < 1) {
+        return 'Just now';
+      }
+      return `${diffHours}h ago`;
+    }
+    if (diffDays === 1) return 'Yesterday';
+    return `${diffDays}d ago`;
+  } catch (e) {
+    return '';
+  }
+};
+
 interface PostingCardProps {
   scoredPosting: ScoredPosting;
   isSelected: boolean;
@@ -81,6 +103,14 @@ export const PostingCard: React.FC<PostingCardProps> = ({
                 <span className="text-gray-300">•</span>
                 <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-[11px] font-medium">
                   {posting.source}
+                </span>
+              </>
+            )}
+            {posting.last_seen_at && (
+              <>
+                <span className="text-gray-300">•</span>
+                <span className="text-gray-500 text-[11px] font-medium" title={`Last confirmed active: ${new Date(posting.last_seen_at).toLocaleString()}`}>
+                  Active: {formatLastSeen(posting.last_seen_at)}
                 </span>
               </>
             )}

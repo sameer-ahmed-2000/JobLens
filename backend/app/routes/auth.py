@@ -1,6 +1,9 @@
 import hashlib
 import logging
 import secrets
+import uuid
+from datetime import datetime, timedelta
+import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.config import settings
@@ -12,10 +15,25 @@ logger = logging.getLogger("auth")
 security = HTTPBearer()
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+def create_jwt_token(user_id: str, email: str) -> str:
+    """
+    Generates a signed JWT token for the given user.
+    """
+    now = datetime.utcnow()
+    expire = now + timedelta(minutes=settings.jwt_expiration_minutes)
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "exp": int(expire.timestamp()),
+        "iat": int(now.timestamp())
+    }
+    return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
+
 def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
     """
     HTTPBearer dependency resolving the client token to a user ID.
-    Hashes the incoming raw token with SHA-256 and queries the database token_hash.
+    First attempts stateless verification via JWT decoding. If that fails,
+    falls back to the legacy SHA-256 hash database token lookup.
     """
     token = credentials.credentials
     if not token:
@@ -24,7 +42,19 @@ def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(secu
             detail="Authentication token is missing."
         )
 
-    # Compute SHA-256 hash of the token
+    # 1. Attempt JWT validation
+    try:
+        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+        user_id = payload.get("sub")
+        if user_id:
+            with UnitOfWork() as uow:
+                user = uow.users.get_by_id(user_id)
+                if user:
+                    return user_id
+    except jwt.PyJWTError as e:
+        logger.debug(f"JWT verification failed, falling back to legacy token validation: {e}")
+
+    # 2. Legacy Fallback: Hash raw token and lookup in database
     token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
 
     with UnitOfWork() as uow:
@@ -32,11 +62,12 @@ def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(secu
         if user:
             return user["id"]
 
-    logger.warning(f"Failed authentication attempt with token hash: {token_hash}")
+    logger.warning(f"Failed authentication attempt with token/hash: {token_hash}")
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid authentication token."
     )
+
 
 @router.post("/signup", response_model=SignupResponse)
 def signup(req: SignupRequest):
@@ -65,11 +96,13 @@ def signup(req: SignupRequest):
             )
 
         # 3. Token generation
-        raw_token = secrets.token_urlsafe(32)
+        user_id = str(uuid.uuid4())
+        raw_token = create_jwt_token(user_id, req.email.strip().lower())
         token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
 
         # 4. User creation
         user_dict = uow.users.create(
+            user_id=user_id,
             name=req.name.strip(),
             email=req.email.strip().lower(),
             whatsapp_number=req.whatsapp_number.strip() if req.whatsapp_number else None,

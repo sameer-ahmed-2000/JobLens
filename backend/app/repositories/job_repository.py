@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from app.models.orm import JobORM, CompanyORM
@@ -69,6 +70,7 @@ class JobRepository:
         if job:
             job.title = title
             job.description = description
+            job.last_seen_at = datetime.utcnow()
             if resolved_company_id:
                 job.company_id = resolved_company_id
             if source:
@@ -109,7 +111,8 @@ class JobRepository:
                 seniority=seniority,
                 experience_required=experience_required,
                 posted_date=posted_date,
-                embedding=embedding
+                embedding=embedding,
+                last_seen_at=datetime.utcnow()
             )
             if job_id:
                 job.id = job_id

@@ -12,7 +12,7 @@ logger = logging.getLogger("discovery_service")
 class DiscoveryService:
     async def get_ranked_postings(
         self, user_id: str = "default-user-id", force_refresh: bool = False,
-        min_score: Optional[float] = None, limit: int = 50
+        min_score: Optional[float] = None, limit: Optional[int] = None
     ) -> List[ScoredPosting]:
         """
         Execute the LangGraph Discovery workflow and return ranked job postings.

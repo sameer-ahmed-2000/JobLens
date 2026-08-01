@@ -153,6 +153,7 @@ class JobORM(Base):
     source = Column(String, nullable=True)
     embedding = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    last_seen_at = Column(DateTime, default=datetime.utcnow, nullable=True)
 
     company = relationship("CompanyORM", back_populates="jobs")
 

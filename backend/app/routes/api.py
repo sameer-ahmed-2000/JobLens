@@ -29,13 +29,13 @@ from app.services.gap_service import gap_service
 @router.get("/postings", response_model=List[ScoredPosting])
 async def get_postings(
     min_score: Optional[float] = None,
-    limit: int = 50,
+    limit: Optional[int] = None,
     current_user_id: str = Depends(get_current_user_id)
 ):
     """
     Returns a list of job postings, scored and ranked against the user's resume.
-    Defaults to the user's own display_threshold and top 50 -- pass min_score=0
-    to see everything, or a higher limit for more results.
+    Defaults to the user's own display_threshold -- pass min_score=0
+    to see everything, or specify a limit query parameter for constrained results.
     """
     return await discovery_service.get_ranked_postings(
         user_id=current_user_id, force_refresh=False, min_score=min_score, limit=limit
@@ -199,7 +199,8 @@ Do not invent experience."""
                 "company": comp_name,
                 "description": job.description,
                 "url": job.url,
-                "source": job.source
+                "source": job.source,
+                "last_seen_at": job.last_seen_at.isoformat() if job.last_seen_at else None
             },
             "overall_score": match.score,
             "fit_rationale": match.rationale or "Pending analysis...",
@@ -383,7 +384,8 @@ async def get_matches(
                     "company": comp_name,
                     "description": job.description,
                     "url": job.url,
-                    "source": job.source
+                    "source": job.source,
+                    "last_seen_at": job.last_seen_at.isoformat() if job.last_seen_at else None
                 },
                 "overall_score": match.score,
                 "fit_rationale": match.rationale or "Pending analysis...",

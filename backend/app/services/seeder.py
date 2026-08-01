@@ -17,8 +17,8 @@ def seed_if_empty(uow_factory=UnitOfWork, force_reseed: bool = False) -> None:
     postings_path = os.path.join(base_dir, "data", "postings.json")
     sources_path = os.path.join(base_dir, "data", "job_sources.json")
 
-    if not os.path.exists(resume_path) or not os.path.exists(postings_path):
-        logger.warning("Seed data files missing. Skipping database seed.")
+    if not os.path.exists(resume_path):
+        logger.warning("Seed resume data file missing. Skipping database seed.")
         return
 
     logger.info("Running idempotent database seeding...")
@@ -57,25 +57,29 @@ def seed_if_empty(uow_factory=UnitOfWork, force_reseed: bool = False) -> None:
             )
             logger.info("Idempotently seeded resume profile.")
 
-            # 3. Seed companies and job postings
-            with open(postings_path, "r", encoding="utf-8") as f:
-                postings_data = json.load(f)
-
+            # 3. Seed companies and job postings if postings.json exists
             count = 0
-            for item in postings_data:
-                comp_name = item.get("company", "Unknown Company")
-                comp = uow.companies.lookup_or_create(name=comp_name)
-                
-                uow.jobs.upsert(
-                    title=item.get("title", ""),
-                    company_name=comp_name,
-                    description=item.get("description", ""),
-                    url=item.get("url", f"https://example.com/jobs/{item.get('id', count)}"),
-                    source=item.get("source", "Seed"),
-                    job_id=item.get("id"),
-                    company_id=comp["id"]
-                )
-                count += 1
+            if os.path.exists(postings_path):
+                with open(postings_path, "r", encoding="utf-8") as f:
+                    postings_data = json.load(f)
+
+                for item in postings_data:
+                    comp_name = item.get("company", "Unknown Company")
+                    comp = uow.companies.lookup_or_create(name=comp_name)
+                    
+                    uow.jobs.upsert(
+                        title=item.get("title", ""),
+                        company_name=comp_name,
+                        description=item.get("description", ""),
+                        url=item.get("url", f"https://example.com/jobs/{item.get('id', count)}"),
+                        source=item.get("source", "Seed"),
+                        job_id=item.get("id"),
+                        company_id=comp["id"]
+                    )
+                    count += 1
+                logger.info(f"Idempotently seeded {count} job postings.")
+            else:
+                logger.info("Seed postings data file missing; skipping mock job seed.")
 
             # 4. Seed job sources; add any new ones from the file without touching
             # existing rows, so upgrading job_sources.json (e.g. adding new

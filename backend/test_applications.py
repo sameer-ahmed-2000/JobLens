@@ -34,8 +34,28 @@ def setup_database():
     app.repositories.uow.SessionLocal = TestSessionLocal
 
     Base.metadata.create_all(bind=test_engine)
-    # Seed the test SQLite database
+    # Seed the test SQLite database (seeds default user and resume)
     seed_if_empty(uow_factory=UnitOfWork)
+
+    # Pre-seed a mock job and match for default-user-id to make endpoints work
+    with UnitOfWork() as uow:
+        comp = uow.companies.lookup_or_create(name="Test Company")
+        job = uow.jobs.upsert(
+            title="Senior AI Engineer",
+            company_name="Test Company",
+            description="Build RAG and LangGraph agents using FastAPI.",
+            url="https://test.com/jobs/1",
+            source="Test",
+            job_id="job-test-101",
+            company_id=comp["id"]
+        )
+        uow.job_matches.upsert_match(
+            user_id="default-user-id",
+            job_id=job.id,
+            score=0.95,
+            rationale="Excellent alignment with RAG skills"
+        )
+        uow.commit()
     yield
     Base.metadata.drop_all(bind=test_engine)
     if orig_db_sl:

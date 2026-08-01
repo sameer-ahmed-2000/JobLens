@@ -27,6 +27,7 @@ class RawPosting(BaseModel):
     description: str
     url: Optional[str] = None
     source: Optional[str] = None
+    last_seen_at: Optional[str] = None
 
 class ScoredPosting(BaseModel):
     id: Optional[str] = None

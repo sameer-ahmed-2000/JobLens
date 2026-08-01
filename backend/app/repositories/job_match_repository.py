@@ -1,6 +1,9 @@
+from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
-from app.models.orm import JobMatchORM, JobORM
+from app.models.orm import JobMatchORM, JobORM, ApplicationORM
+from app.config import settings
 
 class JobMatchRepository:
     def __init__(self, session: Session):
@@ -68,16 +71,13 @@ class JobMatchRepository:
                 rationale=fit_rationale
             )
 
-    def get_matches_for_user(self, user_id: str, min_score: Optional[float] = None, limit: int = 50) -> List[Dict[str, Any]]:
+    def get_matches_for_user(self, user_id: str, min_score: Optional[float] = None, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """
         Retrieve job matches for a user, ordered by score descending, then created_at descending.
         Joins with the JobORM/CompanyORM tables to enrich output.
 
         Filters to matches at/above `min_score` (defaults to the user's own
-        display_threshold if not passed) and caps result count at `limit` --
-        previously this returned every scored match ever created for the user
-        with no floor or ceiling, which meant a user with thousands of scored
-        postings saw all of them regardless of fit quality.
+        display_threshold if not passed) and caps result count at `limit` if specified.
         """
         from app.models.orm import UserORM
 
@@ -85,15 +85,34 @@ class JobMatchRepository:
             user = self.session.query(UserORM).filter(UserORM.id == user_id).first()
             min_score = user.display_threshold if user else 0.7
 
-        results = self.session.query(JobMatchORM, JobORM).join(
+        stale_threshold = datetime.utcnow() - timedelta(days=settings.job_stale_after_days)
+
+        query = self.session.query(JobMatchORM, JobORM).join(
             JobORM, JobMatchORM.job_id == JobORM.id
+        ).outerjoin(
+            ApplicationORM,
+            and_(
+                ApplicationORM.job_id == JobORM.id,
+                ApplicationORM.user_id == user_id
+            )
         ).filter(
             JobMatchORM.user_id == user_id,
-            JobMatchORM.score >= min_score
+            JobMatchORM.score >= min_score,
+            or_(
+                JobORM.last_seen_at >= stale_threshold,
+                ApplicationORM.id.isnot(None)
+            )
+        ).group_by(
+            JobMatchORM.id, JobORM.id
         ).order_by(
             JobMatchORM.score.desc(),
             JobMatchORM.created_at.desc()
-        ).limit(limit).all()
+        )
+
+        if limit is not None:
+            query = query.limit(limit)
+
+        results = query.all()
 
         matches = []
         for match, job in results:
@@ -109,7 +128,8 @@ class JobMatchRepository:
                     "company": comp_name,
                     "description": job.description,
                     "url": job.url,
-                    "source": job.source
+                    "source": job.source,
+                    "last_seen_at": job.last_seen_at.isoformat() if job.last_seen_at else None
                 },
                 "overall_score": match.score,
                 "fit_rationale": match.rationale or "Pending analysis...",

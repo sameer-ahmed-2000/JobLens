@@ -28,6 +28,7 @@ class Settings(BaseModel):
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
     top_n_rationales: int = int(os.getenv("TOP_N_RATIONALES", "10"))
+    job_stale_after_days: int = int(os.getenv("JOB_STALE_AFTER_DAYS", "14"))
     database_url: str = _raw_db_url
 
     # Real-time, resume-driven aggregator sources
@@ -76,6 +77,11 @@ class Settings(BaseModel):
 
     # Self-Serve Onboarding Invite Protection
     signup_invite_token: str = os.getenv("SIGNUP_INVITE_TOKEN", "joblens-beta-2026")
+
+    # JWT Authentication Settings
+    jwt_secret_key: str = os.getenv("JWT_SECRET_KEY", "super-secret-key-change-me")
+    jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
+    jwt_expiration_minutes: int = int(os.getenv("JWT_EXPIRATION_MINUTES", "43200"))  # Default to 30 days
 
 # Build redis_url after Settings is instantiated.
 # Must be done at module level (not inside __init__) so that load_dotenv()

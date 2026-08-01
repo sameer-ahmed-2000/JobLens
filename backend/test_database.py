@@ -97,8 +97,22 @@ def test_seeder_idempotency():
 
 def test_discovery_integration():
     logger.info("=== Starting Test 4: Database-Backed Discovery Integration Verification ===")
-    # Test fetch_postings reading from database via our seeded data
-    # We patch fetch_postings uow factory or verify discovery pipeline
+    
+    # Pre-seed 8 mock postings manually in the test since postings.json is not present
+    with TestUnitOfWork() as uow:
+        comp = uow.companies.lookup_or_create(name="Test Corp")
+        for i in range(8):
+            uow.jobs.upsert(
+                title=f"Mock AI Engineer {i}",
+                company_name="Test Corp",
+                description="FastAPI, LangGraph, Python, RAG",
+                url=f"https://test.com/job-{i}",
+                source="Test",
+                job_id=f"job-mock-{i}",
+                company_id=comp["id"]
+            )
+        uow.commit()
+
     with TestUnitOfWork() as uow:
         postings = uow.jobs.get_all_postings()
         assert len(postings) >= 8, f"Expected at least 8 postings from seed, got {len(postings)}"

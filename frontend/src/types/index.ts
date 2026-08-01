@@ -5,6 +5,7 @@ export interface RawPosting {
   description: string;
   url?: string;
   source?: string;
+  last_seen_at?: string;
 }
 
 export interface ScoredPosting {
