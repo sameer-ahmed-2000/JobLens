@@ -43,7 +43,8 @@ class JobMatchRepository:
             match.score = score
             if rationale:
                 match.rationale = rationale
-            match.status = status
+            if status != "new":
+                match.status = status
         else:
             match = JobMatchORM(
                 user_id=user_id,
@@ -52,6 +53,7 @@ class JobMatchRepository:
                 rationale=rationale,
                 status=status
             )
+
             if match_id:
                 match.id = match_id
             self.session.add(match)

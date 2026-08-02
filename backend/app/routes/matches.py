@@ -32,11 +32,18 @@ async def get_matches(
 
         if since is not None:
             try:
-                clean_since = since.replace("Z", "+00:00") if since.endswith("Z") else since
+                clean_since = since.strip().replace(" ", "+")
+                if clean_since.endswith("Z"):
+                    clean_since = clean_since.replace("Z", "+00:00")
                 since_dt = datetime.fromisoformat(clean_since)
+                if since_dt.tzinfo is not None:
+                    from datetime import timezone
+                    since_dt = since_dt.astimezone(timezone.utc).replace(tzinfo=None)
                 query = query.filter(JobMatchORM.created_at >= since_dt)
             except Exception as e:
                 raise HTTPException(status_code=400, detail=f"Invalid ISO 8601 format: {e}")
+
+
 
         results = query.order_by(
             JobMatchORM.score.desc(),
