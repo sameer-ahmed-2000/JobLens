@@ -1,0 +1,74 @@
+[
+  {
+    "id": "job_abc123",
+    "title": "AI Engineer",
+    "company": "TechNova Solutions",
+    "description": "We are looking for a Python developer with FastAPI, LangGraph, and RAG skills. Deploy APIs and services. Deploy models onto Kubernetes and optimize performance.",
+    "url": "https://example.com/jobs/1",
+    "source": "Seed",
+    "last_seen_at": "2026-08-02T19:00:00Z"
+  },
+  {
+    "id": "job_2",
+    "title": "Senior Backend Developer",
+    "company": "FastAPI Corp",
+    "description": "Develop high-throughput REST APIs using Python, FastAPI, and PostgreSQL. Experience with Docker, slowapi, SlowAPI, and JWT authentication is required.",
+    "url": "https://example.com/jobs/2",
+    "source": "Seed",
+    "last_seen_at": "2026-08-02T19:00:00Z"
+  },
+  {
+    "id": "job_3",
+    "title": "MLOps Engineer",
+    "company": "DeepMinded Ltd",
+    "description": "Set up model training and evaluation pipelines using MLflow. Experience with Python, Docker, PyTorch, and Ollama is a plus.",
+    "url": "https://example.com/jobs/3",
+    "source": "Seed",
+    "last_seen_at": "2026-08-02T19:00:00Z"
+  },
+  {
+    "id": "job_4",
+    "title": "Frontend Engineer",
+    "company": "Reactify Inc",
+    "description": "Build modern interactive dashboard applications using React, TailwindCSS, Vite, and JavaScript. Experience with SSE (Server-Sent Events) is desired.",
+    "url": "https://example.com/jobs/4",
+    "source": "Seed",
+    "last_seen_at": "2026-08-02T19:00:00Z"
+  },
+  {
+    "id": "job_5",
+    "title": "Data Engineer",
+    "company": "DataFlow Co",
+    "description": "Design and build data warehouses and pipelines using Python, SQL, and AWS. Experience with dbt and Airflow is highly preferred.",
+    "url": "https://example.com/jobs/5",
+    "source": "Seed",
+    "last_seen_at": "2026-08-02T19:00:00Z"
+  },
+  {
+    "id": "job_6",
+    "title": "DevOps Architect",
+    "company": "CloudNative LLC",
+    "description": "Maintain GPU infrastructure, Kubernetes deployment charts, and configure CI/CD pipelines using GitHub Actions. Knowledge of AWS and Terraform is required.",
+    "url": "https://example.com/jobs/6",
+    "source": "Seed",
+    "last_seen_at": "2026-08-02T19:00:00Z"
+  },
+  {
+    "id": "job_7",
+    "title": "Fullstack Developer",
+    "company": "SaaS Hub",
+    "description": "Responsible for building full stack features using Node.js, React, TailwindCSS, and PostgreSQL. Ensure scalability and security of backend REST endpoints.",
+    "url": "https://example.com/jobs/7",
+    "source": "Seed",
+    "last_seen_at": "2026-08-02T19:00:00Z"
+  },
+  {
+    "id": "job_8",
+    "title": "AI Product Manager",
+    "company": "Nexus AI",
+    "description": "Define product requirements and features for generative AI platforms. Work closely with AI Engineering and Backend teams to deliver core value propositions.",
+    "url": "https://example.com/jobs/8",
+    "source": "Seed",
+    "last_seen_at": "2026-08-02T19:00:00Z"
+  }
+]

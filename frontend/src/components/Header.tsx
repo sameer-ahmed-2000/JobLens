@@ -2,7 +2,10 @@ import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { SparklesIcon, SettingsIcon, XIcon } from './icons';
 import { SignupModal } from './SignupModal';
-import { getProfile, updateProfile } from '../services/api';
+import { getProfile, updateProfile, uploadResume, getLatestResumeStatus, reprocessResume, getResumeDownloadUrl, getActiveResume } from '../services/api';
+import type { ResumeFile, ActiveResume } from '../services/api';
+
+
 
 export const Header: React.FC = () => {
   const [token, setToken] = useState(() => {
@@ -22,6 +25,16 @@ export const Header: React.FC = () => {
   const [validationError, setValidationError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Resume states
+  const [resumeFile, setResumeFile] = useState<ResumeFile | null>(null);
+  const [resumeUploadProgress, setResumeUploadProgress] = useState<'idle' | 'uploading' | 'processing' | 'complete' | 'failed'>('idle');
+  const [resumeUploadError, setResumeUploadError] = useState<string | null>(null);
+  const [isReprocessing, setIsReprocessing] = useState(false);
+  const [activeResume, setActiveResume] = useState<ActiveResume | null>(null);
+  const [showRawText, setShowRawText] = useState(false);
+
+
 
   const handleSaveToken = () => {
     const trimmed = tempToken.trim();
@@ -51,11 +64,40 @@ export const Header: React.FC = () => {
       setWhatsapp(data.whatsapp_number || '');
       setNotifyThreshold(data.notify_threshold);
       setDisplayThreshold(data.display_threshold);
+
+      // Fetch latest resume upload status
+      try {
+        const rFile = await getLatestResumeStatus();
+        setResumeFile(rFile);
+        if (rFile) {
+          if (rFile.processing_status === 'pending' || rFile.processing_status === 'processing') {
+            setResumeUploadProgress('processing');
+          } else if (rFile.processing_status === 'complete') {
+            setResumeUploadProgress('complete');
+          } else if (rFile.processing_status === 'failed') {
+            setResumeUploadProgress('failed');
+          }
+        } else {
+          setResumeUploadProgress('idle');
+        }
+      } catch (err) {
+        console.error("Failed to load resume status", err);
+      }
+
+      // Fetch active resume details
+      try {
+        const rAct = await getActiveResume();
+        setActiveResume(rAct);
+      } catch (err) {
+        console.error("Failed to load active resume profile", err);
+      }
+
     } catch (err) {
       console.error("Failed to load profile", err);
       setValidationError("Failed to load user profile settings.");
     }
   };
+
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,7 +131,104 @@ export const Header: React.FC = () => {
     }
   };
 
+  const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setResumeUploadProgress('uploading');
+    setResumeUploadError(null);
+
+    try {
+      await uploadResume(file);
+      setResumeUploadProgress('processing');
+      
+      // Poll for status until completed/failed
+      let attempts = 0;
+      const interval = setInterval(async () => {
+        attempts++;
+        try {
+          const status = await getLatestResumeStatus();
+          if (status) {
+            setResumeFile(status);
+            if (status.processing_status === 'complete') {
+              setResumeUploadProgress('complete');
+              getActiveResume().then(setActiveResume).catch(console.error);
+              clearInterval(interval);
+            } else if (status.processing_status === 'failed') {
+              setResumeUploadProgress('failed');
+              setResumeUploadError(status.error_message || 'Processing failed.');
+              clearInterval(interval);
+            }
+          }
+          if (attempts > 30) {
+            clearInterval(interval);
+          }
+        } catch (err) {
+          console.error("Error polling resume status:", err);
+        }
+      }, 2000);
+
+    } catch (err: any) {
+      console.error("Failed to upload resume:", err);
+      setResumeUploadProgress('failed');
+      setResumeUploadError(err.response?.data?.detail || "Upload failed. Verify file format & size.");
+    }
+  };
+
+  const handleReprocess = async (fileId: string) => {
+    setIsReprocessing(true);
+    setResumeUploadError(null);
+    setResumeUploadProgress('processing');
+    try {
+      await reprocessResume(fileId);
+      
+      let attempts = 0;
+      const interval = setInterval(async () => {
+        attempts++;
+        try {
+          const status = await getLatestResumeStatus();
+          if (status) {
+            setResumeFile(status);
+            if (status.processing_status === 'complete') {
+              setResumeUploadProgress('complete');
+              setIsReprocessing(false);
+              getActiveResume().then(setActiveResume).catch(console.error);
+              clearInterval(interval);
+            } else if (status.processing_status === 'failed') {
+              setResumeUploadProgress('failed');
+              setResumeUploadError(status.error_message || 'Processing failed.');
+              setIsReprocessing(false);
+              clearInterval(interval);
+            }
+          }
+          if (attempts > 30) {
+            clearInterval(interval);
+            setIsReprocessing(false);
+          }
+        } catch (err) {
+          console.error("Error polling status:", err);
+        }
+      }, 2000);
+    } catch (err: any) {
+      console.error("Reprocess failed:", err);
+      setResumeUploadProgress('failed');
+      setResumeUploadError(err.response?.data?.detail || "Reprocessing failed.");
+      setIsReprocessing(false);
+    }
+  };
+
+  const handleDownloadResume = async (resumeId: string) => {
+    try {
+      const { url } = await getResumeDownloadUrl(resumeId);
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error("Failed to fetch download link", err);
+      alert("Could not retrieve download link.");
+    }
+  };
+
   return (
+
     <header className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -213,7 +352,20 @@ export const Header: React.FC = () => {
               >
                 Workspace
               </NavLink>
+              <NavLink
+                to="/profile"
+                className={({ isActive }) =>
+                  `px-4 py-1.5 text-sm font-bold rounded-lg transition-colors ${
+                    isActive
+                      ? 'bg-white text-indigo-700 shadow-sm border border-gray-200/60'
+                      : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+                  }`
+                }
+              >
+                Resume Profile
+              </NavLink>
             </div>
+
 
           </div>
 
@@ -290,8 +442,177 @@ export const Header: React.FC = () => {
                 </p>
               </div>
 
+              {/* Resume Document Upload */}
+              <div className="border-t border-gray-150 pt-4 space-y-2.5">
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Resume Document (.pdf, .docx)
+                </label>
+                
+                {resumeFile ? (
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-3.5 space-y-2 text-xs">
+                    <div className="flex items-center justify-between font-semibold text-gray-800">
+                      <span className="truncate max-w-[180px]">{resumeFile.filename}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-bold tracking-wider ${
+                        resumeFile.processing_status === 'complete' ? 'bg-emerald-100 text-emerald-800' :
+                        resumeFile.processing_status === 'failed' ? 'bg-red-100 text-red-800' :
+                        'bg-amber-100 text-amber-800 animate-pulse'
+                      }`}>
+                        {resumeFile.processing_status}
+                      </span>
+                    </div>
+                    
+                    <div className="text-[11px] text-gray-400 space-y-0.5">
+                      <p>Uploaded: {new Date(resumeFile.uploaded_at).toLocaleString()}</p>
+                      <p>Size: {(resumeFile.size_bytes / 1024).toFixed(1)} KB</p>
+                      {resumeFile.resume_id && (
+                        <p>Linked Active Version ID: {resumeFile.resume_id.slice(0, 8)}...</p>
+                      )}
+                    </div>
+
+                    {resumeFile.error_message && (
+                      <p className="text-red-600 bg-red-50 border border-red-150 p-2 rounded-lg text-[11px] leading-tight">
+                        Error: {resumeFile.error_message}
+                      </p>
+                    )}
+
+                    <div className="flex items-center gap-2 pt-1">
+                      {resumeFile.resume_id && (
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadResume(resumeFile.resume_id!)}
+                          className="px-2.5 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold rounded-lg text-[10px] transition-colors cursor-pointer"
+                        >
+                          📥 Download Original
+                        </button>
+                      )}
+                      
+                      {resumeFile.processing_status === 'failed' && (
+                        <button
+                          type="button"
+                          disabled={isReprocessing}
+                          onClick={() => handleReprocess(resumeFile.id)}
+                          className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg text-[10px] transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          {isReprocessing ? 'Reprocessing...' : '🔁 Reprocess Document'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-gray-500 italic">No resume document uploaded yet.</p>
+                )}
+
+                <div className="relative border-2 border-dashed border-gray-200 rounded-xl p-4 flex flex-col items-center justify-center hover:border-indigo-400 transition-colors">
+                  <input
+                    type="file"
+                    accept=".pdf,.docx"
+                    onChange={handleResumeUpload}
+                    disabled={resumeUploadProgress === 'uploading' || resumeUploadProgress === 'processing'}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                  />
+                  <div className="text-center space-y-1">
+                    <p className="text-xs text-gray-500 font-medium">
+                      {resumeUploadProgress === 'uploading' ? '📤 Uploading to secure storage...' :
+                       resumeUploadProgress === 'processing' ? '⚙️ Text extraction & LLM parsing...' :
+                       'Drag & drop or click to upload new resume'}
+                    </p>
+                    <p className="text-[10px] text-gray-400">PDF or DOCX up to 5MB</p>
+                  </div>
+                </div>
+
+                {resumeUploadError && (
+                  <div className="text-xs font-semibold text-red-600 bg-red-50 border border-red-200 p-2.5 rounded-lg">
+                    {resumeUploadError}
+                  </div>
+                )}
+
+                {/* Active Parsed Resume Profile */}
+                {activeResume && (
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3 mt-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1">
+                        <span>🤖</span> Parsed Resume Profile
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={() => setShowRawText(!showRawText)}
+                        className="text-[10px] text-indigo-600 hover:text-indigo-800 font-bold transition-colors cursor-pointer"
+                      >
+                        {showRawText ? 'Hide Raw Text' : 'View Raw Text'}
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <span className="block text-[10px] text-gray-400 font-bold uppercase">Extracted Title</span>
+                        <span className="font-semibold text-gray-800">{activeResume.title || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="block text-[10px] text-gray-400 font-bold uppercase">Experience</span>
+                        <span className="font-semibold text-gray-800">
+                          {activeResume.years_experience !== undefined ? `${activeResume.years_experience} Years` : 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Skills ({activeResume.skills?.length || 0})</span>
+                      <div className="flex flex-wrap gap-1 max-h-[80px] overflow-y-auto pr-1">
+                        {activeResume.skills?.length > 0 ? (
+                          activeResume.skills.map((skill, index) => (
+                            <span key={index} className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-[10px] font-semibold border border-indigo-100">
+                              {skill}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-gray-400 italic text-[11px]">No skills parsed</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {activeResume.projects?.length > 0 && (
+                      <div className="space-y-1">
+                        <span className="block text-[10px] text-gray-400 font-bold uppercase">Extracted Projects</span>
+                        <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
+                          {activeResume.projects.map((proj, index) => (
+                            <div key={index} className="bg-white border border-gray-150 rounded-lg p-2 text-[11px] space-y-1 shadow-2xs">
+                              <div className="flex items-center justify-between font-semibold text-gray-800">
+                                <span>{proj.title}</span>
+                              </div>
+                              {proj.description && (
+                                <p className="text-gray-500 leading-normal">{proj.description}</p>
+                              )}
+                              {proj.technologies?.length > 0 && (
+                                <div className="flex flex-wrap gap-1 pt-0.5">
+                                  {proj.technologies.map((tech, tIdx) => (
+                                    <span key={tIdx} className="bg-gray-100 text-gray-600 px-1 py-0.2 rounded text-[9px]">
+                                      {tech}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {showRawText && (
+                      <div className="space-y-1 pt-1 border-t border-slate-200">
+                        <span className="block text-[10px] text-gray-400 font-bold uppercase">Raw Extracted Text</span>
+                        <pre className="bg-slate-100 border border-slate-200 text-[10px] text-slate-600 rounded-lg p-2 overflow-x-auto whitespace-pre-wrap max-h-[150px] leading-tight font-mono">
+                          {activeResume.raw_text}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+
               {/* Threshold Fields */}
               <div className="grid grid-cols-2 gap-4 pt-2">
+
                 <div className="space-y-1">
                   <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">Display Floor</label>
                   <input

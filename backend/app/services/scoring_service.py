@@ -223,5 +223,61 @@ class ScoringService:
         else:
             logger.debug(f"Redis is not active. Skipped publishing event to channel {channel_name}.")
 
+    def score_all_jobs_for_user(self, user_id: str) -> None:
+        """
+        Recalculates match scores for all jobs in the database against this user's active resume.
+        Suppresses individual new_match SSE alerts.
+        """
+        # Refresh the cache to make sure the user's latest resume embedding is loaded
+        self.cache.refresh()
+
+        user_data = self.cache.get_all().get(user_id)
+        if not user_data:
+            logger.warning(f"ScoringService: No active resume found in cache for user '{user_id}' during rescore.")
+            return
+
+        resume_embedding = user_data["embedding"]
+
+        with UnitOfWork() as uow:
+            # Query all jobs with embeddings
+            jobs = uow.session.query(JobORM).filter(JobORM.embedding != None).all()
+            # Stash attributes to avoid lazy-loading issues outside the UoW
+            job_list = []
+            for j in jobs:
+                job_list.append({
+                    "id": j.id,
+                    "title": j.title,
+                    "embedding": j.embedding
+                })
+
+        logger.info(f"ScoringService: Rescoring all {len(job_list)} jobs for user '{user_id}'")
+
+        scored_count = 0
+        failed_count = 0
+        for job_info in job_list:
+            job_id = job_info["id"]
+            job_title = job_info["title"]
+            job_embedding = job_info["embedding"]
+
+            # Isolated per-item failure block
+            try:
+                if isinstance(job_embedding, str):
+                    job_embedding = json.loads(job_embedding)
+
+                sim = cosine_similarity(job_embedding, resume_embedding)
+                score = round(sim, 4)
+
+                with UnitOfWork() as user_uow:
+                    user_uow.job_matches.upsert(
+                        user_id=user_id, job_id=job_id, score=score
+                    )
+                    user_uow.commit()
+                scored_count += 1
+            except Exception as e:
+                logger.error(f"ScoringService: Failed to score job '{job_title}' ({job_id}) for user '{user_id}': {e}")
+                failed_count += 1
+
+        logger.info(f"ScoringService: Completed rescore for user '{user_id}'. Successful: {scored_count}, Failed: {failed_count}.")
+
 # Global singleton service
 scoring_service = ScoringService()

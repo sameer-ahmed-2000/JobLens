@@ -83,6 +83,13 @@ class Settings(BaseModel):
     jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
     jwt_expiration_minutes: int = int(os.getenv("JWT_EXPIRATION_MINUTES", "43200"))  # Default to 30 days
 
+    # Cloudinary and Resume upload settings
+    cloudinary_cloud_name: str = os.getenv("CLOUDINARY_CLOUD_NAME", "")
+    cloudinary_api_key: str = os.getenv("CLOUDINARY_API_KEY", "")
+    cloudinary_api_secret: str = os.getenv("CLOUDINARY_API_SECRET", "")
+    resume_max_size_mb: int = int(os.getenv("RESUME_MAX_SIZE_MB", "5"))
+    resume_processing_max_retries: int = int(os.getenv("RESUME_PROCESSING_MAX_RETRIES", "3"))
+
 # Build redis_url after Settings is instantiated.
 # Must be done at module level (not inside __init__) so that load_dotenv()
 # has already been called and os.getenv() returns the real values.

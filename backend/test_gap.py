@@ -4,9 +4,23 @@ import asyncio
 import logging
 from fastapi import HTTPException
 from unittest.mock import patch
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from app.database import Base
+from app.repositories.uow import UnitOfWork
+from app.services.seeder import seed_if_empty
 
 # Ensure backend directory is in sys.path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Setup test DB engine (in-memory SQLite for isolated unit testing)
+test_engine = create_engine("sqlite:///:memory:", echo=False)
+TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+
+class TestUnitOfWork(UnitOfWork):
+    def __init__(self):
+        super().__init__(session_factory=TestSessionLocal)
+
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s - %(message)s")
 logger = logging.getLogger("test_gap")
@@ -78,56 +92,66 @@ def test_node_step_by_step():
 
 def test_service_execution():
     logger.info("=== Starting GapService Verification ===")
+    Base.metadata.create_all(bind=test_engine)
+    seed_if_empty(uow_factory=TestUnitOfWork)
+    
     from app.services.gap_service import gap_service
     from app.models.schemas import GapReportRequest
 
-    # Test with posting_url
-    url_req = GapReportRequest(posting_url="https://example.com/jobs/1")
-    report_url = asyncio.run(gap_service.analyze_gap(url_req))
-    assert report_url is not None, "Service returned None for posting_url."
-    assert report_url.company == "TechNova Solutions", "Company mismatch when loading from posting_url."
-    logger.info(f"Service test (posting_url): Successfully generated report for {report_url.job_title} at {report_url.company} with score {report_url.match_score}")
+    with patch("app.services.gap_service.UnitOfWork", TestUnitOfWork), \
+         patch("app.nodes.fetch.UnitOfWork", TestUnitOfWork):
+        # Test with posting_url
+        url_req = GapReportRequest(posting_url="https://example.com/jobs/1")
+        report_url = asyncio.run(gap_service.analyze_gap(url_req))
+        assert report_url is not None, "Service returned None for posting_url."
+        assert report_url.company == "TechNova Solutions", "Company mismatch when loading from posting_url."
+        logger.info(f"Service test (posting_url): Successfully generated report for {report_url.job_title} at {report_url.company} with score {report_url.match_score}")
 
-    # Test with jd_text
-    text_req = GapReportRequest(jd_text="Looking for a Python developer with React and AWS skills.")
-    report_text = asyncio.run(gap_service.analyze_gap(text_req))
-    assert report_text is not None, "Service returned None for jd_text."
-    logger.info(f"Service test (jd_text): Successfully generated report with score {report_text.match_score}")
+        # Test with jd_text
+        text_req = GapReportRequest(jd_text="Looking for a Python developer with React and AWS skills.")
+        report_text = asyncio.run(gap_service.analyze_gap(text_req))
+        assert report_text is not None, "Service returned None for jd_text."
+        logger.info(f"Service test (jd_text): Successfully generated report with score {report_text.match_score}")
     logger.info("=== GapService Verification Passed Successfully! ===\n")
 
 def test_graceful_degradation():
     logger.info("=== Starting Graceful Degradation & Error Handling Verification ===")
+    Base.metadata.create_all(bind=test_engine)
+    seed_if_empty(uow_factory=TestUnitOfWork)
+    
     from app.services.gap_service import gap_service
     from app.models.schemas import GapReportRequest
     from app.services.llm_router import llm_router
 
-    # 1. Invalid JD text
-    try:
-        asyncio.run(gap_service.analyze_gap(GapReportRequest(jd_text="ab")))
-        assert False, "Should have raised HTTPException for short/invalid JD text."
-    except HTTPException as e:
-        assert e.status_code == 400, f"Expected 400 for invalid JD text, got {e.status_code}"
-        logger.info("Verified 400 error for short/invalid JD text.")
+    with patch("app.services.gap_service.UnitOfWork", TestUnitOfWork), \
+         patch("app.nodes.fetch.UnitOfWork", TestUnitOfWork):
+        # 1. Invalid JD text
+        try:
+            asyncio.run(gap_service.analyze_gap(GapReportRequest(jd_text="ab")))
+            assert False, "Should have raised HTTPException for short/invalid JD text."
+        except HTTPException as e:
+            assert e.status_code == 400, f"Expected 400 for invalid JD text, got {e.status_code}"
+            logger.info("Verified 400 error for short/invalid JD text.")
 
-    # 2. Missing posting URL
-    try:
-        asyncio.run(gap_service.analyze_gap(GapReportRequest(posting_url="https://nonexistent.job/999")))
-        assert False, "Should have raised HTTPException for non-existent posting URL."
-    except HTTPException as e:
-        assert e.status_code == 404, f"Expected 404 for missing posting URL, got {e.status_code}"
-        logger.info("Verified 404 error for non-existent posting URL.")
+        # 2. Missing posting URL
+        try:
+            asyncio.run(gap_service.analyze_gap(GapReportRequest(posting_url="https://nonexistent.job/999")))
+            assert False, "Should have raised HTTPException for non-existent posting URL."
+        except HTTPException as e:
+            assert e.status_code == 404, f"Expected 404 for missing posting URL, got {e.status_code}"
+            logger.info("Verified 404 error for non-existent posting URL.")
 
-    # 3. LLM Failure / Offline degradation test
-    logger.info("Testing LLM failure fallback without crashing pipeline...")
-    with patch.object(llm_router, "generate_structured_output", return_value=None), \
-         patch.object(llm_router, "generate", return_value="Rationale unavailable."):
-        
-        req = GapReportRequest(jd_text="Seeking AI Engineer with Python, FastAPI, and AWS.")
-        report = asyncio.run(gap_service.analyze_gap(req))
-        assert report is not None, "Pipeline crashed when LLM was unavailable!"
-        assert len(report.gaps) > 0, "Fallback extraction failed to find skills."
-        assert report.overall_fit_summary == "Summary unavailable." or report.overall_fit_summary == "Rationale unavailable.", "Fallback summary mismatch."
-        logger.info(f"Verified LLM offline fallback: report generated with {len(report.gaps)} skills and default summary.")
+        # 3. LLM Failure / Offline degradation test
+        logger.info("Testing LLM failure fallback without crashing pipeline...")
+        with patch.object(llm_router, "generate_structured_output", return_value=None), \
+             patch.object(llm_router, "generate", return_value="Rationale unavailable."):
+            
+            req = GapReportRequest(jd_text="Seeking AI Engineer with Python, FastAPI, and AWS.")
+            report = asyncio.run(gap_service.analyze_gap(req))
+            assert report is not None, "Pipeline crashed when LLM was unavailable!"
+            assert len(report.gaps) > 0, "Fallback extraction failed to find skills."
+            assert report.overall_fit_summary == "Summary unavailable." or report.overall_fit_summary == "Rationale unavailable.", "Fallback summary mismatch."
+            logger.info(f"Verified LLM offline fallback: report generated with {len(report.gaps)} skills and default summary.")
 
     logger.info("=== Graceful Degradation Verification Passed Successfully! ===\n")
 

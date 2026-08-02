@@ -24,4 +24,9 @@ dependencies = [
     "pytest-asyncio",
     "openai",
     "pyjwt",
+    "cloudinary",
+    "pdfplumber",
+    "python-docx",
+    "filetype",
+    "python-multipart",
 ]

@@ -24,6 +24,8 @@ const Dashboard: React.FC = () => {
   const [newMatchIds, setNewMatchIds] = useState<string[]>([]);
   const [isRefetching, setIsRefetching] = useState(false);
   const [refetchMessage, setRefetchMessage] = useState<string | null>(null);
+  const [resumeMessage, setResumeMessage] = useState<string | null>(null);
+
 
   // SSE connection setup with ticket-based auth & gap backfilling
   const lastSeenTimestampRef = useRef<string>(new Date().toISOString());
@@ -107,8 +109,18 @@ const Dashboard: React.FC = () => {
               });
 
               lastSeenTimestampRef.current = new Date().toISOString();
+            } else if (payload.type === 'resume_processed') {
+              if (payload.status === 'complete') {
+                setResumeMessage(`Resume "${payload.filename}" processed successfully! RAG profile & scores updated.`);
+                queryClient.invalidateQueries({ queryKey: ['postings'] });
+                queryClient.invalidateQueries({ queryKey: ['profile'] });
+              } else if (payload.status === 'failed') {
+                setResumeMessage(`Resume "${payload.filename}" processing failed: ${payload.error_message || 'Unknown error'}`);
+              }
+              setTimeout(() => setResumeMessage(null), 8000);
             } else if (payload.type === 'refetch_status') {
               setIsRefetching(false);
+
               if (payload.status === 'completed') {
                 setRefetchMessage('Refresh complete -- new matches will appear above.');
               } else if (payload.status === 'skipped_no_resume') {
@@ -348,6 +360,13 @@ const Dashboard: React.FC = () => {
           {refetchMessage}
         </div>
       )}
+
+      {resumeMessage && (
+        <div className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+          {resumeMessage}
+        </div>
+      )}
+
 
       {/* Two-Column Layout (Refinement #12: Jobs ↓ Gap Report on mobile) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">

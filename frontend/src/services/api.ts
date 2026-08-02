@@ -133,9 +133,92 @@ export const getNotifications = async (): Promise<NotificationItem[]> => {
   return response.data;
 };
 
+export interface ResumeFile {
+  id: string;
+  user_id: string;
+  resume_id: string | null;
+  storage_provider: string;
+  storage_key: string;
+  filename: string;
+  content_type: string;
+  size_bytes: number;
+  sha256: string;
+  processing_status: 'pending' | 'processing' | 'complete' | 'failed';
+  processing_attempts: number;
+  error_message: string | null;
+  uploaded_at: string;
+  processed_at: string | null;
+}
+
+export interface UploadResponse {
+  resume_file_id: string;
+  status: 'pending';
+  message: string;
+}
+
+export const uploadResume = async (file: File): Promise<UploadResponse> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await apiClient.post<UploadResponse>('/api/resume/upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+  return response.data;
+};
+
+export const getLatestResumeStatus = async (): Promise<ResumeFile | null> => {
+  const response = await apiClient.get<ResumeFile | null>('/api/resume/status');
+  return response.data;
+};
+
+export const getResumeStatus = async (id: string): Promise<ResumeFile> => {
+  const response = await apiClient.get<ResumeFile>(`/api/resume/status/${id}`);
+  return response.data;
+};
+
+export const reprocessResume = async (id: string): Promise<{ status: string; message: string }> => {
+  const response = await apiClient.post<{ status: string; message: string }>(`/api/resume/${id}/reprocess`);
+  return response.data;
+};
+
+export const getResumeDownloadUrl = async (id: string): Promise<{ url: string }> => {
+  const response = await apiClient.get<{ url: string }>(`/api/resume/${id}/download`);
+  return response.data;
+};
+
+export interface ActiveResume {
+  id: string;
+  user_id: string;
+  title: string;
+  years_experience: number;
+  skills: string[];
+  parsed_skills: string[];
+  projects: Array<{
+    title: string;
+    description: string;
+    technologies: string[];
+  }>;
+  raw_text: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export const getActiveResume = async (): Promise<ActiveResume | null> => {
+  try {
+    const response = await apiClient.get<ActiveResume>('/api/resume/active');
+    return response.data;
+  } catch (err: any) {
+    if (err.response?.status === 404) {
+      return null;
+    }
+    throw err;
+  }
+};
 
 
 export const QUERY_CONFIG = {
   staleTime: 5 * 60 * 1000, // 5 minutes as recommended
   refetchOnWindowFocus: false,
 };
+

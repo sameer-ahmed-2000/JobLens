@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Header } from './components/Header';
 import Dashboard from './pages/Dashboard';
 import CareerWorkspace from './pages/CareerWorkspace';
+import { CareerProfile } from './pages/CareerProfile';
 
 const queryClient = new QueryClient();
 
@@ -16,6 +17,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/workspace" element={<CareerWorkspace />} />
+              <Route path="/profile" element={<CareerProfile />} />
             </Routes>
           </main>
         </div>
@@ -23,5 +25,6 @@ function App() {
     </QueryClientProvider>
   );
 }
+
 
 export default App;

@@ -62,7 +62,30 @@ class UserORM(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     resumes = relationship("ResumeORM", back_populates="user", cascade="all, delete-orphan")
+    resume_files = relationship("ResumeFileORM", back_populates="user", cascade="all, delete-orphan")
     applications = relationship("ApplicationORM", back_populates="user", cascade="all, delete-orphan")
+
+
+class ResumeFileORM(Base):
+    __tablename__ = "resume_files"
+
+    id = Column(String, primary_key=True, default=generate_uuid)
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    resume_id = Column(String, ForeignKey("resumes.id", ondelete="SET NULL"), nullable=True)
+    storage_provider = Column(String, default="cloudinary", nullable=False)
+    storage_key = Column(String, nullable=False)
+    filename = Column(String, nullable=False)
+    content_type = Column(String, nullable=False)
+    size_bytes = Column(Integer, nullable=False)
+    sha256 = Column(String, nullable=False, index=True)
+    processing_status = Column(String, default="pending", nullable=False)
+    processing_attempts = Column(Integer, default=0, nullable=False)
+    error_message = Column(Text, nullable=True)
+    uploaded_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    processed_at = Column(DateTime, nullable=True)
+
+    user = relationship("UserORM", back_populates="resume_files")
+    resume = relationship("ResumeORM", foreign_keys=[resume_id], uselist=False)
 
 
 class ResumeORM(Base):
@@ -75,8 +98,13 @@ class ResumeORM(Base):
     embedding = Column(VECTOR(384), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    
+    version = Column(Integer, default=1, nullable=False)
+    parser_version = Column(String, nullable=True)
+    resume_file_id = Column(String, ForeignKey("resume_files.id", ondelete="SET NULL"), nullable=True)
 
     user = relationship("UserORM", back_populates="resumes")
+    resume_file = relationship("ResumeFileORM", foreign_keys=[resume_file_id], uselist=False)
 
     __table_args__ = (
         Index(
@@ -151,7 +179,7 @@ class JobORM(Base):
     experience_required = Column(Float, nullable=True)
     posted_date = Column(String, nullable=True)
     source = Column(String, nullable=True)
-    embedding = Column(JSON, nullable=True)
+    embedding = Column(VECTOR(384), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     last_seen_at = Column(DateTime, default=datetime.utcnow, nullable=True)
 

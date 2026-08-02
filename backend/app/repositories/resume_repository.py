@@ -1,6 +1,7 @@
 from typing import Optional, Dict, Any, List
 import logging
 import numpy as np
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.models.orm import ResumeORM, EmbeddingCacheORM
 from app.services.embeddings import embedding_service
@@ -32,6 +33,13 @@ class ResumeRepository:
         """Alias for get_active(user_id) to maintain compatibility."""
         return self.get_active(user_id)
 
+    def get_by_id(self, resume_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve a specific resume version by its ID."""
+        resume = self.session.query(ResumeORM).filter(ResumeORM.id == resume_id).first()
+        if not resume:
+            return None
+        return self._to_dict(resume)
+
     def upsert_resume(
         self,
         user_id: str,
@@ -39,7 +47,10 @@ class ResumeRepository:
         years_experience: float,
         skills: List[str],
         projects: List[Dict[str, Any]],
-        resume_id: Optional[str] = None
+        resume_id: Optional[str] = None,
+        resume_file_id: Optional[str] = None,
+        version: Optional[int] = None,
+        parser_version: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Upsert a resume, recalculate the vector embedding, and mark it active.
@@ -82,9 +93,11 @@ class ResumeRepository:
             logger.warning(f"Failed to generate vector embedding for resume: {e}. Defaulting to zero vector.")
             embedding = [0.0] * 384
 
-        # Check if resume already exists
+        # Check if resume already exists (by resume_file_id first, then by resume_id, then by raw_text/user_id)
         resume = None
-        if resume_id:
+        if resume_file_id:
+            resume = self.session.query(ResumeORM).filter(ResumeORM.resume_file_id == resume_file_id).first()
+        if not resume and resume_id:
             resume = self.session.query(ResumeORM).filter(ResumeORM.id == resume_id).first()
         if not resume:
             resume = self.session.query(ResumeORM).filter(
@@ -97,13 +110,27 @@ class ResumeRepository:
             resume.parsed_skills = skills
             resume.embedding = embedding
             resume.is_active = True
+            if parser_version:
+                resume.parser_version = parser_version
+            if resume_file_id:
+                resume.resume_file_id = resume_file_id
+            if version:
+                resume.version = version
         else:
+            # Determine version if not passed
+            if not version:
+                max_ver = self.session.query(func.max(ResumeORM.version)).filter(ResumeORM.user_id == user_id).scalar() or 0
+                version = max_ver + 1
+
             resume = ResumeORM(
                 user_id=user_id,
                 raw_text=raw_text,
                 parsed_skills=skills,
                 embedding=embedding,
-                is_active=True
+                is_active=True,
+                version=version,
+                parser_version=parser_version,
+                resume_file_id=resume_file_id
             )
             if resume_id:
                 resume.id = resume_id
