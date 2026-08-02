@@ -130,7 +130,7 @@ async def get_match_detail(request: Request, match_id: str, current_user_id: str
     """
     from app.repositories.uow import UnitOfWork
     from app.models.orm import JobMatchORM, JobORM
-    from app.services.llm_router import llm_router
+    from app.services.llm_router_factory import get_llm_router
     from fastapi import HTTPException
     
     with UnitOfWork() as uow:
@@ -181,7 +181,7 @@ Mention only overlapping skills.
 Do not invent experience."""
             
             try:
-                rationale_text = llm_router.generate(prompt=prompt)
+                rationale_text = get_llm_router("rationale").generate(prompt=prompt)
                 # Store the generated rationale back in the match record
                 match.rationale = rationale_text
                 uow.commit()

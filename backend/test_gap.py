@@ -9,6 +9,7 @@ from sqlalchemy.orm import sessionmaker
 from app.database import Base
 from app.repositories.uow import UnitOfWork
 from app.services.seeder import seed_if_empty
+from app.services.llm_router_factory import get_llm_router
 
 # Ensure backend directory is in sys.path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -121,7 +122,6 @@ def test_graceful_degradation():
     
     from app.services.gap_service import gap_service
     from app.models.schemas import GapReportRequest
-    from app.services.llm_router import llm_router
 
     with patch("app.services.gap_service.UnitOfWork", TestUnitOfWork), \
          patch("app.nodes.fetch.UnitOfWork", TestUnitOfWork):
@@ -143,8 +143,8 @@ def test_graceful_degradation():
 
         # 3. LLM Failure / Offline degradation test
         logger.info("Testing LLM failure fallback without crashing pipeline...")
-        with patch.object(llm_router, "generate_structured_output", return_value=None), \
-             patch.object(llm_router, "generate", return_value="Rationale unavailable."):
+        with patch.object(get_llm_router("gap_analysis"), "generate_structured_output", return_value=None), \
+             patch.object(get_llm_router("gap_analysis"), "generate", return_value="Rationale unavailable."):
             
             req = GapReportRequest(jd_text="Seeking AI Engineer with Python, FastAPI, and AWS.")
             report = asyncio.run(gap_service.analyze_gap(req))

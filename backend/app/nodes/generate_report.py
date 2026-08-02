@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, Any, List
 from app.models.schemas import SkillGap, GapReport
-from app.services.llm_router import llm_router
+from app.services.llm_router_factory import get_llm_router
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ Maximum 80 words.
 Do not invent experience."""
 
     try:
-        res = llm_router.generate(prompt=prompt)
+        res = get_llm_router("gap_analysis").generate(prompt=prompt)
         if not res or res.strip() == "Rationale unavailable.":
             overall_fit_summary = "Summary unavailable."
         else:

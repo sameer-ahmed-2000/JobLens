@@ -18,6 +18,7 @@ from app.services.seeder import seed_if_empty
 from app.services.scoring_service import ScoringService, ActiveResumesCache
 from app.services.ingestion.scoring_worker import ScoringWorker
 from app.models.orm import UserORM, ResumeORM, JobORM, JobMatchORM
+from app.services.llm_router_factory import get_llm_router
 from backfill_scores import run_backfill
 
 # Setup test DB (SQLite in-memory)
@@ -181,7 +182,7 @@ def test_lazy_rationale_and_ownership():
     dummy_req = Request(scope={"type": "http", "method": "GET", "path": "/api/matches/test", "headers": []})
 
     with patch("app.repositories.uow.UnitOfWork", TestUnitOfWork), \
-         patch("app.services.llm_router.llm_router.generate", return_value="Generates typescript rationale.") as mock_generate:
+         patch.object(get_llm_router("rationale"), "generate", return_value="Generates typescript rationale.") as mock_generate:
          
         # 1. User 1 accesses Match 1 (Success + Generate rationale)
         res = asyncio.run(get_match_detail(request=dummy_req, match_id=match1_id, current_user_id=user1["id"]))

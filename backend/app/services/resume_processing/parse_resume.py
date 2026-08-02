@@ -2,7 +2,7 @@ import re
 import logging
 from typing import Dict, Any, List, Tuple
 from app.models.schemas import ResumeProfile, Project
-from app.services.llm_router import llm_router
+from app.services.llm_router_factory import get_llm_router
 from app.nodes.extract_jd import extract_fallback_skills
 
 logger = logging.getLogger(__name__)
@@ -89,7 +89,7 @@ Resume Text:
 
     # Attempt 1
     try:
-        raw_res = llm_router.generate_structured_output(prompt=prompt, schema=ResumeProfile)
+        raw_res = get_llm_router("resume_parsing").generate_structured_output(prompt=prompt, schema=ResumeProfile)
         if raw_res and isinstance(raw_res, dict):
             extracted_profile = ResumeProfile(**raw_res)
         elif isinstance(raw_res, ResumeProfile):
@@ -106,7 +106,7 @@ Resume Text:
 {raw_text[:16000]}
 """
         try:
-            raw_res_retry = llm_router.generate_structured_output(prompt=retry_prompt, schema=ResumeProfile)
+            raw_res_retry = get_llm_router("resume_parsing").generate_structured_output(prompt=retry_prompt, schema=ResumeProfile)
             if raw_res_retry and isinstance(raw_res_retry, dict):
                 extracted_profile = ResumeProfile(**raw_res_retry)
             elif isinstance(raw_res_retry, ResumeProfile):

@@ -1,6 +1,6 @@
 import logging
 from typing import Dict, Any
-from app.services.llm_router import llm_router
+from app.services.llm_router_factory import get_llm_router
 from app.services.resume_index import resume_index
 from app.config import settings
 
@@ -32,7 +32,7 @@ Maximum 25 words.
 Mention only overlapping skills.
 Do not invent experience."""
             
-            rationale = llm_router.generate(prompt=prompt)
+            rationale = get_llm_router("rationale").generate(prompt=prompt)
             sp.fit_rationale = rationale
         else:
             sp.fit_rationale = f"Ranked outside top {top_n} (rationale not generated)."

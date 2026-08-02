@@ -77,10 +77,10 @@ class OllamaBackend:
 
 
 # ---------------------------------------------------------------------------
-# Backend: FreeModel.dev / OpenAI-compatible
+# Backend: FreeModel.dev / OpenAI-compatible (also used for Groq)
 # ---------------------------------------------------------------------------
 class OpenAICompatibleBackend:
-    """Shared backend for any OpenAI-compatible API (FreeModel.dev, OpenAI, etc.)."""
+    """Shared backend for any OpenAI-compatible API (FreeModel.dev, OpenAI, Groq, etc.)."""
 
     def __init__(self, base_url: str, api_key: str, model: str, provider_name: str):
         self.base_url = base_url
@@ -143,23 +143,90 @@ class OpenAICompatibleBackend:
 
 
 # ---------------------------------------------------------------------------
-# Unified LLMRouter — provider-agnostic
+# Backend: Gemini (Google Generative AI)
+# ---------------------------------------------------------------------------
+class GeminiBackend:
+    """Google Gemini backend using the google-generativeai SDK."""
+
+    def __init__(self, api_key: str, model: str):
+        self.api_key = api_key
+        self.model = model
+
+    def _get_client(self):
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=self.api_key)
+            return genai.GenerativeModel(self.model)
+        except ImportError:
+            raise RuntimeError(
+                "google-generativeai package not installed. Run: pip install google-generativeai"
+            )
+
+    def generate(self, prompt: str, system_prompt: str = "", timeout: float = 30.0) -> str:
+        try:
+            client = self._get_client()
+            full_prompt = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
+            response = client.generate_content(full_prompt)
+            text = response.text or ""
+            return text.strip() or "Rationale unavailable."
+        except Exception as e:
+            logger.warning(f"Gemini generation failed gracefully: {e}")
+            return "Rationale unavailable."
+
+    def generate_json(self, prompt: str, timeout: float = 30.0) -> Any:
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=self.api_key)
+            model = genai.GenerativeModel(
+                self.model,
+                generation_config={"response_mime_type": "application/json"}
+            )
+            response = model.generate_content(prompt)
+            raw = response.text or "{}"
+            return json.loads(raw)
+        except json.JSONDecodeError as e:
+            logger.warning(f"Gemini JSON parse error: {e}")
+        except Exception as e:
+            logger.warning(f"Gemini JSON generation failed gracefully: {e}")
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Unified LLMRouter — provider-agnostic, role-scoped
 # ---------------------------------------------------------------------------
 class LLMRouter(ILLMRouter):
     """
-    Provider-agnostic LLM router. Switch backends via LLM_PROVIDER env var:
+    Provider-agnostic LLM router scoped to a named role.
+    The provider is resolved from the role-specific setting in config, falling
+    back to llm_provider_default if the role-specific var is unset.
+
+    Supported providers (set via env vars):
       - "ollama"     (default, local)
       - "freemodel"  (FreeModel.dev, OpenAI-compatible)
       - "openai"     (OpenAI API)
+      - "groq"       (Groq — OpenAI-compatible, fast/cheap)
+      - "gemini"     (Google Gemini)
     """
 
-    def __init__(self):
-        provider = settings.llm_provider.lower().strip()
-        logger.info(f"LLMRouter initializing with provider: '{provider}'")
+    def __init__(self, role: str, provider_override: Optional[str] = None):
+        self.role = role
 
-        if provider == "freemodel":
+        # Resolve the provider for this role
+        if provider_override:
+            resolved = provider_override.lower().strip()
+        else:
+            role_attr = f"llm_provider_{role}"
+            role_val = getattr(settings, role_attr, "").strip()
+            resolved = role_val if role_val else settings.llm_provider_default.lower().strip()
+
+        self.requested_provider = resolved
+        self.active_provider = resolved  # may be overwritten to "ollama" on fallback
+
+        logger.info(f"LLMRouter [{self.role}] initializing with provider: '{resolved}'")
+
+        if resolved == "freemodel":
             if not settings.freemodel_api_key:
-                logger.warning("FREEMODEL_API_KEY not set. Falling back to Ollama.")
+                self._warn_fallback("FREEMODEL_API_KEY")
                 self._backend = OllamaBackend()
             else:
                 self._backend = OpenAICompatibleBackend(
@@ -169,9 +236,9 @@ class LLMRouter(ILLMRouter):
                     provider_name="FreeModel.dev"
                 )
 
-        elif provider == "openai":
+        elif resolved == "openai":
             if not settings.openai_api_key:
-                logger.warning("OPENAI_API_KEY not set. Falling back to Ollama.")
+                self._warn_fallback("OPENAI_API_KEY")
                 self._backend = OllamaBackend()
             else:
                 self._backend = OpenAICompatibleBackend(
@@ -181,12 +248,44 @@ class LLMRouter(ILLMRouter):
                     provider_name="OpenAI"
                 )
 
+        elif resolved == "groq":
+            if not settings.groq_api_key:
+                self._warn_fallback("GROQ_API_KEY")
+                self._backend = OllamaBackend()
+            else:
+                self._backend = OpenAICompatibleBackend(
+                    base_url="https://api.groq.com/openai/v1",
+                    api_key=settings.groq_api_key,
+                    model=settings.groq_model,
+                    provider_name="Groq"
+                )
+
+        elif resolved == "gemini":
+            if not settings.gemini_api_key:
+                self._warn_fallback("GEMINI_API_KEY")
+                self._backend = OllamaBackend()
+            else:
+                self._backend = GeminiBackend(
+                    api_key=settings.gemini_api_key,
+                    model=settings.gemini_model,
+                )
+
         else:
-            if provider != "ollama":
-                logger.warning(f"Unknown LLM_PROVIDER '{provider}'. Defaulting to Ollama.")
+            if resolved != "ollama":
+                logger.warning(
+                    f"LLMRouter [{self.role}]: Unknown provider '{resolved}'. Defaulting to Ollama."
+                )
+                self.active_provider = "ollama"
             self._backend = OllamaBackend()
 
-        logger.info(f"LLMRouter ready: {type(self._backend).__name__}")
+        logger.info(f"LLMRouter [{self.role}] ready: {type(self._backend).__name__}")
+
+    def _warn_fallback(self, key_name: str) -> None:
+        logger.warning(
+            f"LLM provider degradation [{self.role}]: Requested '{self.requested_provider}' "
+            f"but {key_name} is not set. Falling back to Ollama."
+        )
+        self.active_provider = "ollama"
 
     def generate(self, prompt: str, system_prompt: str = "", timeout: float = 30.0) -> str:
         return self._backend.generate(prompt=prompt, system_prompt=system_prompt, timeout=timeout)
@@ -200,7 +299,3 @@ class LLMRouter(ILLMRouter):
 
     def generate_structured_output(self, prompt: str, schema: Any, system_prompt: str = "") -> Any:
         return self.generate_json(prompt=prompt, timeout=60.0)
-
-
-# Singleton instance — all nodes import this
-llm_router = LLMRouter()

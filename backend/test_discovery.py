@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+from app.services.llm_router_factory import get_llm_router
 
 # Ensure backend directory is in sys.path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -59,7 +60,7 @@ def test_phase_2b():
     from unittest.mock import patch
     from app.services.discovery_service import discovery_service
 
-    with patch("app.services.llm_router.llm_router.generate", return_value="Strong fit for AI role."):
+    with patch.object(get_llm_router("rationale"), "generate", return_value="Strong fit for AI role."):
         scored = asyncio.run(discovery_service.get_ranked_postings())
     assert len(scored) > 0, "DiscoveryService returned empty list."
 

@@ -6,6 +6,7 @@ from app.routes.applications import router as applications_router
 from app.routes.dashboard import router as dashboard_router
 from app.routes.auth import router as auth_router
 from app.config import settings
+from app.services.llm_router_factory import get_llm_router
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +93,16 @@ def health_check():
     cache = scoring_worker.scoring_service.cache
     cache_last_refreshed = getattr(cache, "_last_refreshed_at", None)
 
+    _roles = ["rationale", "gap_analysis", "resume_parsing", "notification"]
+    llm_status = {
+        role: {
+            "requested": get_llm_router(role).requested_provider,
+            "active": get_llm_router(role).active_provider,
+            "degraded": get_llm_router(role).requested_provider != get_llm_router(role).active_provider,
+        }
+        for role in _roles
+    }
+
     return {
         "status": "ok",
         "queue_backend": embedding_queue.queue_backend,
@@ -104,4 +115,5 @@ def health_check():
         "resume_cache_last_refreshed": (
             cache_last_refreshed.isoformat() if cache_last_refreshed else None
         ),
+        "llm_providers": llm_status,
     }

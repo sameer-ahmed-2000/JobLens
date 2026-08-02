@@ -37,11 +37,30 @@ DATABASE_URL=postgresql://joblens_user:secure_password@localhost:5432/joblens
 # IMPORTANT: Replace this default invite token with your private group secret!
 SIGNUP_INVITE_TOKEN=your-private-group-invite-token
 
-# LLM Provider Configuration ("freemodel" | "ollama" | "openai")
-LLM_PROVIDER=freemodel
-FREEMODEL_API_KEY=your_freemodel_key
-FREEMODEL_BASE_URL=https://api.freemodel.dev/v1
-FREEMODEL_MODEL=auto
+# LLM Provider Configuration (per-role; all default to "ollama" if unset)
+# Role-to-provider mapping — set each to one of: "ollama" | "freemodel" | "openai" | "groq" | "gemini"
+# Leave a role blank to inherit LLM_PROVIDER_DEFAULT.
+LLM_PROVIDER_DEFAULT=ollama        # global fallback when a role is unset
+LLM_PROVIDER_RATIONALE=groq        # fit rationale: cheap, fast, frequent
+LLM_PROVIDER_GAP_ANALYSIS=gemini   # JD/gap extraction: structured JSON, accuracy first
+LLM_PROVIDER_RESUME_PARSING=gemini # resume parsing: same extraction shape as gap_analysis
+LLM_PROVIDER_NOTIFICATION=groq     # notification teaser: cheap, low-stakes
+
+# FreeModel.dev keys (if LLM_PROVIDER_*=freemodel)
+# FREEMODEL_API_KEY=your_freemodel_key
+# FREEMODEL_BASE_URL=https://api.freemodel.dev/v1
+# FREEMODEL_MODEL=auto
+
+# Groq keys (if LLM_PROVIDER_*=groq) — https://console.groq.com/
+GROQ_API_KEY=your_groq_api_key
+GROQ_MODEL=llama-3.3-70b-versatile
+
+# Gemini keys (if LLM_PROVIDER_*=gemini) — https://aistudio.google.com/apikey
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-2.0-flash
+
+# Legacy note: the old LLM_PROVIDER=<name> is still supported as a fallback for
+# LLM_PROVIDER_DEFAULT, so existing .env files keep working without modification.
 
 # Aggregators Configuration
 ADZUNA_APP_ID=your_adzuna_app_id

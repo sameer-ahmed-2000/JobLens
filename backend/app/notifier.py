@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.config import settings
 from app.repositories.uow import UnitOfWork
 from app.models.orm import UserORM, JobMatchORM, JobORM
-from app.services.llm_router import llm_router
+from app.services.llm_router_factory import get_llm_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -203,7 +203,7 @@ Mention only overlapping skills.
 Do not invent experience."""
                         try:
                             logger.info(f"Generating rationale teaser for user {user_id} and job {job.id}")
-                            rationale = llm_router.generate(prompt=prompt)
+                            rationale = get_llm_router("notification").generate(prompt=prompt)
                             match.rationale = rationale
                             uow.commit()
                         except Exception as ex:

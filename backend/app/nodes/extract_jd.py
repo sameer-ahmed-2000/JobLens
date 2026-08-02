@@ -3,7 +3,7 @@ import json
 import re
 from typing import Dict, Any, List, Optional
 from app.models.schemas import JDRequirements
-from app.services.llm_router import llm_router
+from app.services.llm_router_factory import get_llm_router
 from app.nodes.normalize import get_tech_aliases
 
 logger = logging.getLogger(__name__)
@@ -59,7 +59,7 @@ Job Description:
 
     # First attempt
     try:
-        raw_res = llm_router.generate_structured_output(prompt=prompt, schema=JDRequirements)
+        raw_res = get_llm_router("gap_analysis").generate_structured_output(prompt=prompt, schema=JDRequirements)
         if raw_res and isinstance(raw_res, dict):
             extracted_jd = JDRequirements(**raw_res)
         elif isinstance(raw_res, JDRequirements):
@@ -76,7 +76,7 @@ Job Text:
 {jd_text[:3000]}
 """
         try:
-            raw_res_retry = llm_router.generate_structured_output(prompt=retry_prompt, schema=JDRequirements)
+            raw_res_retry = get_llm_router("gap_analysis").generate_structured_output(prompt=retry_prompt, schema=JDRequirements)
             if raw_res_retry and isinstance(raw_res_retry, dict):
                 extracted_jd = JDRequirements(**raw_res_retry)
             elif isinstance(raw_res_retry, JDRequirements):

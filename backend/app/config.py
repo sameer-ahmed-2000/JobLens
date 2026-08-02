@@ -11,8 +11,19 @@ if _raw_db_url.startswith("postgres://"):
 class Settings(BaseModel):
     app_name: str = "JobLens MVP"
 
-    # LLM Provider selection: "ollama" | "freemodel" | "openai"
-    llm_provider: str = os.getenv("LLM_PROVIDER", "ollama")
+    # LLM Provider selection
+    # Legacy single-provider var — kept as the default when role-specific vars are unset.
+    # Set LLM_PROVIDER_DEFAULT (or the old LLM_PROVIDER) to choose the global fallback.
+    llm_provider_default: str = os.getenv(
+        "LLM_PROVIDER_DEFAULT",
+        os.getenv("LLM_PROVIDER", "ollama")  # legacy fallback so old .env files keep working
+    )
+
+    # Per-role provider overrides (empty string = use llm_provider_default)
+    llm_provider_rationale: str = os.getenv("LLM_PROVIDER_RATIONALE", "")
+    llm_provider_gap_analysis: str = os.getenv("LLM_PROVIDER_GAP_ANALYSIS", "")
+    llm_provider_resume_parsing: str = os.getenv("LLM_PROVIDER_RESUME_PARSING", "")
+    llm_provider_notification: str = os.getenv("LLM_PROVIDER_NOTIFICATION", "")
 
     # Ollama
     ollama_base_url: str = os.getenv("LLAMA_API_BASE", os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"))
@@ -23,9 +34,17 @@ class Settings(BaseModel):
     freemodel_base_url: str = os.getenv("FREEMODEL_BASE_URL", "https://api.freemodel.dev/v1")
     freemodel_model: str = os.getenv("FREEMODEL_MODEL", "auto")
 
-    # OpenAI (optional future provider)
+    # OpenAI
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
+    # Groq (OpenAI-compatible, fast/cheap inference)
+    groq_api_key: str = os.getenv("GROQ_API_KEY", "")
+    groq_model: str = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+
+    # Gemini (Google — structured JSON extraction)
+    gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
+    gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 
     top_n_rationales: int = int(os.getenv("TOP_N_RATIONALES", "10"))
     job_stale_after_days: int = int(os.getenv("JOB_STALE_AFTER_DAYS", "14"))

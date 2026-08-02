@@ -1,7 +1,7 @@
 import logging
 from typing import Dict, Any, List
 from app.models.schemas import SkillGap
-from app.services.llm_router import llm_router
+from app.services.llm_router_factory import get_llm_router
 from app.nodes.compare_skills import load_resume_data
 
 logger = logging.getLogger(__name__)
@@ -58,7 +58,7 @@ Do NOT exaggerate.
 Do NOT invent experience.
 Maximum 30 words."""
             try:
-                res = llm_router.generate(prompt=prompt)
+                res = get_llm_router("gap_analysis").generate(prompt=prompt)
                 if not res or res.strip() == "Rationale unavailable.":
                     gap.bridge_suggestion = "Bridge suggestion unavailable."
                 else:
