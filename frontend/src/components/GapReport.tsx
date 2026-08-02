@@ -47,13 +47,14 @@ export const GapReport: React.FC<GapReportProps> = ({
       queryClient.invalidateQueries({ queryKey: ['dashboard_metrics'] });
     },
   });
+
   if (isLoading) {
     return <GapReportSkeleton />;
   }
 
   if (isError) {
     return (
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+      <div className="bg-surface rounded-2xl border border-gray-800 p-6">
         <ErrorBanner
           title="Report Generation Failed"
           message={error?.message || 'Unable to generate gap report. Please try again.'}
@@ -68,13 +69,19 @@ export const GapReport: React.FC<GapReportProps> = ({
   }
 
   if (!report) {
-    return <EmptyState type="report" title="Generating AI Report..." message="Please wait while LangGraph analyzes your skills against this job description." />;
+    return (
+      <EmptyState
+        type="report"
+        title="RESOLVING AI FOCUS..."
+        message="Please wait while LangGraph filters the signal and performs gap analysis."
+      />
+    );
   }
 
   const { job_title, company, gaps = [], overall_fit_summary, overall_recommendation } = report;
   const summaryText = overall_fit_summary || overall_recommendation;
 
-  // Group skills (Refinement #4)
+  // Group skills
   const strongMatches = gaps.filter((g) => g.classification === 'have');
   const partialMatches = gaps.filter((g) => g.classification === 'partial');
   const missingSkills = gaps.filter((g) => g.classification === 'missing');
@@ -86,18 +93,18 @@ export const GapReport: React.FC<GapReportProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-6 max-h-[800px] overflow-y-auto pr-2">
+    <div className="bg-surface rounded-2xl border border-gray-800 shadow-md p-6 space-y-6 max-h-[800px] overflow-y-auto pr-2 font-body text-text-warm">
       
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-850 pb-4">
         <div>
-          <h2 className="text-xl font-extrabold text-gray-900">{job_title}</h2>
-          <div className="flex items-center gap-1.5 text-sm text-gray-600 font-medium mt-1">
-            <BuildingIcon size={16} className="text-gray-400" />
-            <span>{company}</span>
+          <h2 className="text-xl font-extrabold text-text-warm font-display tracking-tight">{job_title}</h2>
+          <div className="flex items-center gap-1.5 text-sm text-gray-400 mt-1 font-mono">
+            <BuildingIcon size={16} className="text-gray-500" />
+            <span>{company.toUpperCase()}</span>
             {selectedPosting?.posting.source && (
-              <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-xs ml-1">
-                {selectedPosting.posting.source}
+              <span className="bg-base border border-gray-850 text-gray-450 px-2 py-0.5 rounded text-[10px] font-bold">
+                {selectedPosting.posting.source.toUpperCase()}
               </span>
             )}
           </div>
@@ -106,18 +113,18 @@ export const GapReport: React.FC<GapReportProps> = ({
         <div className="flex items-center gap-3 shrink-0 self-start sm:self-center">
           {selectedPosting?.posting.id && (
             saveCheck?.exists ? (
-              <span className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-bold border border-emerald-100">
+              <span className="inline-flex items-center gap-1.5 px-3 py-2 bg-focus-confirm/10 text-focus-confirm rounded-xl text-xs font-bold border border-focus-confirm/20 font-mono">
                 <CheckCircleIcon size={14} />
-                <span>Saved to Workspace</span>
+                <span>SAVED TO WORKSPACE</span>
               </span>
             ) : (
               <button
                 type="button"
                 onClick={() => !saveMutation.isPending && saveMutation.mutate()}
                 disabled={saveMutation.isPending}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-indigo-700 rounded-xl text-xs font-bold transition-colors cursor-pointer focus:outline-none disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-base text-gray-300 hover:text-focus-confirm rounded-xl text-xs font-bold border border-gray-800 transition-colors cursor-pointer focus:outline-none disabled:opacity-50 font-mono"
               >
-                <span>⭐ {saveMutation.isPending ? 'Saving...' : 'Save Job'}</span>
+                <span>⭐ {saveMutation.isPending ? 'SAVING...' : 'SAVE JOB'}</span>
               </button>
             )
           )}
@@ -126,41 +133,41 @@ export const GapReport: React.FC<GapReportProps> = ({
             <button
               type="button"
               onClick={handleOpenOriginal}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-xs font-bold transition-colors cursor-pointer focus:outline-none"
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-focus-confirm/10 text-focus-confirm hover:bg-focus-confirm/20 border border-focus-confirm/20 rounded-xl text-xs font-bold transition-all cursor-pointer focus:outline-none font-mono"
             >
-              <span>Open Original Job</span>
+              <span>OPEN ORIGINAL</span>
               <ExternalLinkIcon size={14} />
             </button>
           )}
         </div>
       </div>
 
-      {/* Confidence Card (Refinement #5) */}
+      {/* Confidence Card (Aperture-themed inside) */}
       <ConfidenceCard report={report} />
 
       {/* AI Fit Summary Narrative */}
       {summaryText && (
-        <div className="bg-gradient-to-r from-blue-50/80 via-indigo-50/80 to-purple-50/80 rounded-xl p-4 border border-indigo-100 shadow-2xs">
-          <div className="flex items-center space-x-2 text-indigo-900 font-bold text-xs uppercase tracking-wider mb-2">
-            <SparklesIcon size={16} className="text-indigo-600" />
-            <span>AI Career Advisor Executive Summary</span>
+        <div className="bg-base/30 rounded-xl p-4 border border-gray-850 shadow-sm font-body">
+          <div className="flex items-center space-x-2 text-focus-confirm font-bold text-xs uppercase tracking-wider mb-2 font-mono">
+            <SparklesIcon size={16} className="text-focus-confirm" />
+            <span>AI LENS SIGNAL ANALYSIS SUMMARY</span>
           </div>
-          <p className="text-sm text-gray-800 leading-relaxed font-medium">
+          <p className="text-sm text-gray-300 leading-relaxed font-medium">
             {summaryText}
           </p>
         </div>
       )}
 
-      {/* Grouped Skills List (Refinement #4) */}
+      {/* Grouped Skills List */}
       <div className="space-y-6 pt-2">
         
         {/* Strong Matches */}
         {strongMatches.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-bold text-emerald-800 flex items-center gap-1.5">
-                <span>✅ Strong Matches</span>
-                <span className="bg-emerald-100 text-emerald-800 text-xs px-2 py-0.5 rounded-full font-extrabold">
+              <h3 className="text-xs font-bold text-focus-confirm tracking-wider uppercase font-mono flex items-center gap-1.5">
+                <span>✅ RESOLVED SIGNALS (STRONG)</span>
+                <span className="bg-focus-confirm/10 text-focus-confirm text-xs px-2 py-0.5 rounded-full font-extrabold border border-focus-confirm/20">
                   {strongMatches.length}
                 </span>
               </h3>
@@ -176,10 +183,10 @@ export const GapReport: React.FC<GapReportProps> = ({
         {/* Partial Matches */}
         {partialMatches.length > 0 && (
           <div>
-            <div className="flex items-center justify-between mb-3 pt-2 border-t border-gray-100">
-              <h3 className="text-sm font-bold text-amber-800 flex items-center gap-1.5">
-                <span>⚠ Partial Matches & Experience Bridges</span>
-                <span className="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded-full font-extrabold">
+            <div className="flex items-center justify-between mb-3 pt-2 border-t border-gray-850">
+              <h3 className="text-xs font-bold text-signal-amber tracking-wider uppercase font-mono flex items-center gap-1.5">
+                <span>⚠ DRIFTING SIGNALS (PARTIAL)</span>
+                <span className="bg-signal-amber/10 text-signal-amber text-xs px-2 py-0.5 rounded-full font-extrabold border border-signal-amber/20">
                   {partialMatches.length}
                 </span>
               </h3>
@@ -195,10 +202,10 @@ export const GapReport: React.FC<GapReportProps> = ({
         {/* Missing Skills */}
         {missingSkills.length > 0 && (
           <div>
-            <div className="flex items-center justify-between mb-3 pt-2 border-t border-gray-100">
-              <h3 className="text-sm font-bold text-rose-800 flex items-center gap-1.5">
-                <span>❌ Missing Skills & Learning Priorities</span>
-                <span className="bg-rose-100 text-rose-800 text-xs px-2 py-0.5 rounded-full font-extrabold">
+            <div className="flex items-center justify-between mb-3 pt-2 border-t border-gray-850">
+              <h3 className="text-xs font-bold text-alert-red tracking-wider uppercase font-mono flex items-center gap-1.5">
+                <span>❌ OUT OF FOCUS (MISSING GAPS)</span>
+                <span className="bg-alert-red/10 text-alert-red text-xs px-2 py-0.5 rounded-full font-extrabold border border-alert-red/20">
                   {missingSkills.length}
                 </span>
               </h3>
@@ -212,8 +219,8 @@ export const GapReport: React.FC<GapReportProps> = ({
         )}
 
         {gaps.length === 0 && (
-          <p className="text-sm text-gray-500 italic text-center py-4">
-            No skill gap data reported for this position.
+          <p className="text-sm text-gray-500 italic text-center py-4 font-mono">
+            NO GAP PROFILE SIGNALS CAPTURED.
           </p>
         )}
 

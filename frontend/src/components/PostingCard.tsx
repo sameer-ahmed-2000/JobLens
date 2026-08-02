@@ -1,9 +1,10 @@
 import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ScoredPosting } from '../types';
-import { formatPercentage, extractSkillChips, getScoreColorClass } from '../utils/helpers';
+import { extractSkillChips } from '../utils/helpers';
 import { checkApplicationExists, saveApplication } from '../services/api';
 import { BuildingIcon, ExternalLinkIcon, CheckCircleIcon } from './icons';
+import { ApertureRing } from './ApertureRing';
 
 const formatLastSeen = (dateStr?: string): string => {
   if (!dateStr) return '';
@@ -44,8 +45,6 @@ export const PostingCard: React.FC<PostingCardProps> = ({
 }) => {
   const queryClient = useQueryClient();
   const { posting, overall_score, fit_rationale } = scoredPosting;
-  const scoreClass = getScoreColorClass(overall_score);
-  const formattedScore = formatPercentage(overall_score);
   const skillChips = extractSkillChips(fit_rationale, posting.title, posting.description);
 
   const { data: saveCheck } = useQuery({
@@ -79,80 +78,79 @@ export const PostingCard: React.FC<PostingCardProps> = ({
   return (
     <div
       onClick={handleCardClick}
-      className={`p-5 rounded-xl border text-left transition-all duration-150 cursor-pointer ${
+      className={`viewfinder-bracket-container p-5 rounded-xl border text-left transition-all duration-150 cursor-pointer relative ${
         isHighlighted
-          ? 'animate-pulse-highlight border-indigo-500 shadow-md ring-2 ring-indigo-500/20'
+          ? 'animate-rack-focus border-signal-amber bg-surface shadow-lg z-10'
           : isSelected
-            ? 'bg-indigo-50/60 border-indigo-500 shadow-md ring-2 ring-indigo-500/20'
-            : 'bg-white border-gray-200 hover:border-gray-300 hover:shadow-md'
-      } ${disabled ? 'opacity-70 cursor-not-allowed' : ''}`}
+            ? 'viewfinder-active bg-surface border-gray-800 shadow-md'
+            : 'bg-surface border-gray-850 hover:border-gray-800 hover:shadow-sm'
+      } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
     >
+      {/* Corner bracket layout sub-element */}
+      <div className="viewfinder-bracket-sub" />
+
       {/* Top row: Title, Company, Score Badge */}
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="flex-1 min-w-0">
-          <h3 className="text-base font-bold text-gray-900 truncate group-hover:text-indigo-600 transition-colors">
+          <h3 className="text-base font-bold text-text-warm truncate transition-colors">
             {posting.title}
           </h3>
-          <div className="flex items-center gap-2 text-xs text-gray-600 mt-0.5">
-            <span className="flex items-center gap-1 font-medium text-gray-700">
-              <BuildingIcon size={13} className="text-gray-400" />
+          <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5 font-mono">
+            <span className="flex items-center gap-1 font-medium text-gray-300">
+              <BuildingIcon size={13} className="text-gray-500" />
               {posting.company}
             </span>
             {posting.source && (
               <>
-                <span className="text-gray-300">•</span>
-                <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-[11px] font-medium">
-                  {posting.source}
+                <span className="text-gray-700">•</span>
+                <span className="bg-base border border-gray-800 text-gray-400 px-2 py-0.5 rounded text-[10px] font-bold">
+                  {posting.source.toUpperCase()}
                 </span>
               </>
             )}
             {posting.last_seen_at && (
               <>
-                <span className="text-gray-300">•</span>
-                <span className="text-gray-500 text-[11px] font-medium" title={`Last confirmed active: ${new Date(posting.last_seen_at).toLocaleString()}`}>
-                  Active: {formatLastSeen(posting.last_seen_at)}
+                <span className="text-gray-700">•</span>
+                <span className="text-gray-500 text-[10px] font-medium" title={`Last confirmed active: ${new Date(posting.last_seen_at).toLocaleString()}`}>
+                  ACT: {formatLastSeen(posting.last_seen_at).toUpperCase()}
                 </span>
               </>
             )}
           </div>
         </div>
 
-        {/* Match Score Badge */}
-        <div
-          className={`flex items-center px-2.5 py-1 rounded-lg font-extrabold text-sm border shadow-2xs ${scoreClass.badge}`}
-        >
-          {formattedScore}
-        </div>
+        {/* Custom SVG Aperture Ring Score Visualizer */}
+        <ApertureRing score={overall_score * 100} size="normal" className="mt-0.5" />
       </div>
 
-      {/* Skill Chips (Refinement #3) */}
+      {/* Skill Chips */}
       <div className="flex flex-wrap gap-1.5 my-3">
         {skillChips.map((chip, idx) => (
           <span
             key={idx}
-            className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-gray-100 text-gray-700 border border-gray-200"
+            className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-base text-gray-300 border border-gray-850 font-mono"
           >
-            {chip}
+            {chip.toUpperCase()}
           </span>
         ))}
       </div>
 
       {/* Fit Rationale */}
-      <p className="text-xs text-gray-600 line-clamp-2 leading-relaxed mb-3 bg-gray-50/80 p-2.5 rounded-lg border border-gray-100 italic">
+      <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed mb-3 bg-base/40 p-2.5 rounded-lg border border-gray-850 italic">
         "{fit_rationale || 'Strong overall match based on skill alignment and experience.'}"
       </p>
 
-      {/* Bottom row: Status & Actions (Refinement #10) */}
-      <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs font-medium">
-        <span className={isSelected ? 'text-indigo-600 font-semibold' : 'text-gray-400'}>
-          {isSelected ? '● Active Selection' : 'Click to analyze gaps'}
+      {/* Bottom row: Status & Actions */}
+      <div className="flex items-center justify-between pt-2 border-t border-gray-850 text-xs font-mono">
+        <span className={isSelected ? 'text-focus-confirm font-bold' : 'text-gray-500'}>
+          {isSelected ? '◉ VIEW VIEWPORT' : 'SELECT TO RANGE'}
         </span>
 
         <div className="flex items-center gap-3">
           {saveCheck?.exists ? (
-            <span className="inline-flex items-center gap-1 text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+            <span className="inline-flex items-center gap-1 text-focus-confirm font-bold bg-focus-confirm/10 px-2 py-0.5 rounded-md border border-focus-confirm/20 text-[11px]">
               <CheckCircleIcon size={12} />
-              Saved
+              SAVED
             </span>
           ) : (
             <button
@@ -162,10 +160,10 @@ export const PostingCard: React.FC<PostingCardProps> = ({
                 if (!saveMutation.isPending) saveMutation.mutate();
               }}
               disabled={saveMutation.isPending}
-              className="inline-flex items-center gap-1 text-gray-500 hover:text-indigo-600 font-semibold transition-colors disabled:opacity-50 focus:outline-none"
+              className="inline-flex items-center gap-1 text-gray-400 hover:text-focus-confirm font-bold transition-colors disabled:opacity-50 focus:outline-none cursor-pointer"
               title="Save to Workspace"
             >
-              ⭐ {saveMutation.isPending ? 'Saving...' : 'Save'}
+              ⭐ {saveMutation.isPending ? 'SAVING...' : 'SAVE'}
             </button>
           )}
 
@@ -173,10 +171,10 @@ export const PostingCard: React.FC<PostingCardProps> = ({
             <button
               type="button"
               onClick={handleOpenJob}
-              className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 hover:underline font-semibold focus:outline-none"
+              className="inline-flex items-center gap-1 text-focus-confirm hover:text-focus-confirm/80 hover:underline font-bold focus:outline-none cursor-pointer"
               title="Open original job posting in new tab"
             >
-              <span>Open Job</span>
+              <span>OPEN</span>
               <ExternalLinkIcon size={12} />
             </button>
           )}

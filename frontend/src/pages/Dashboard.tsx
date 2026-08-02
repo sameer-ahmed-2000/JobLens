@@ -334,17 +334,15 @@ const Dashboard: React.FC = () => {
             setRefetchMessage(null);
             try {
               await refetchJobs();
-              // isRefetching stays true until the refetch_status SSE event
-              // arrives, since the actual work runs in a background task.
             } catch (err) {
               setIsRefetching(false);
               setRefetchMessage('Could not start refresh -- try again.');
               setTimeout(() => setRefetchMessage(null), 5000);
             }
           }}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl text-xs font-bold transition-colors cursor-pointer focus:outline-none disabled:opacity-50 whitespace-nowrap"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-base border border-gray-800 text-gray-300 hover:text-focus-confirm rounded-xl text-xs font-bold font-mono transition-colors cursor-pointer focus:outline-none disabled:opacity-50 whitespace-nowrap"
         >
-          {isRefetching ? 'Refreshing...' : '🔄 Refresh Jobs'}
+          {isRefetching ? 'Refreshing...' : '🔄 REFETCH JOBS'}
         </button>
         <FilterBar
           filters={filters}
@@ -356,14 +354,14 @@ const Dashboard: React.FC = () => {
       </div>
 
       {refetchMessage && (
-        <div className="text-xs font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2">
-          {refetchMessage}
+        <div className="text-xs font-mono font-bold text-focus-confirm bg-focus-confirm/10 border border-focus-confirm/20 rounded-lg px-3 py-2">
+          {refetchMessage.toUpperCase()}
         </div>
       )}
 
       {resumeMessage && (
-        <div className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-          {resumeMessage}
+        <div className="text-xs font-mono font-bold text-focus-confirm bg-focus-confirm/10 border border-focus-confirm/20 rounded-lg px-3 py-2">
+          {resumeMessage.toUpperCase()}
         </div>
       )}
 
@@ -373,16 +371,16 @@ const Dashboard: React.FC = () => {
         
         {/* Left Panel: Ranked Job List (5 cols on Desktop) */}
         <div className="lg:col-span-5">
-          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-xs">
-            <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
-              <h2 className="text-base font-extrabold text-gray-900 flex items-center gap-2">
+          <div className="bg-surface p-4 rounded-2xl border border-gray-850 shadow-md">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-850">
+              <h2 className="text-base font-bold text-text-warm font-display flex items-center gap-2">
                 <span>Ranked Job Matches</span>
-                <span className="bg-indigo-100 text-indigo-800 text-xs px-2 py-0.5 rounded-full font-bold">
+                <span className="bg-base border border-gray-850 text-gray-400 text-xs px-2 py-0.5 rounded-full font-bold font-mono">
                   {filteredPostings.length}
                 </span>
               </h2>
-              <span className="text-xs text-gray-400 font-medium hidden sm:inline">
-                Click a card to analyze
+              <span className="text-xs text-gray-500 font-mono hidden sm:inline">
+                SELECT TO RANGE
               </span>
             </div>
             

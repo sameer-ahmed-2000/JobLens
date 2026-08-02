@@ -77,7 +77,8 @@ def process_resume_file(resume_file_id: str, user_id: str) -> None:
                 projects=[p.dict() for p in parsed_profile.projects],
                 resume_file_id=resume_file_id,
                 version=next_ver,
-                parser_version=parser_version
+                parser_version=parser_version,
+                raw_text=raw_text
             )
             uow.commit()
 

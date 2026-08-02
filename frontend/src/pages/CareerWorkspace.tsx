@@ -45,19 +45,19 @@ const CareerWorkspace: React.FC = () => {
   }
 
   return (
-    <div className="space-y-8 pb-12 flex flex-col h-[calc(100vh-100px)]">
+    <div className="space-y-8 pb-12 flex flex-col h-[calc(100vh-100px)] font-body">
       {/* Header section with page title */}
       <div className="flex items-center justify-between shrink-0">
         <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">Career Workspace</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage your applications and track interview progress.</p>
+          <h1 className="text-2xl font-black text-text-warm font-display tracking-tight">Career Workspace</h1>
+          <p className="text-xs text-gray-500 mt-1 font-mono uppercase">MANAGE YOUR APPLICATIONS AND TRACK INTERVIEW PROGRESS</p>
         </div>
         <button
           onClick={() => navigate('/')}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-bold rounded-xl shadow-xs transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-focus-confirm/10 border border-focus-confirm/20 hover:bg-focus-confirm/20 text-focus-confirm text-xs font-bold font-mono rounded-xl shadow-xs transition-colors cursor-pointer"
         >
-          <SparklesIcon size={16} className="text-indigo-600" />
-          <span>Discover More Jobs</span>
+          <SparklesIcon size={16} className="text-focus-confirm" />
+          <span>DISCOVER MORE JOBS</span>
         </button>
       </div>
 

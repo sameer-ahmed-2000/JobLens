@@ -14,6 +14,8 @@ class VECTOR(UserDefinedType):
     Custom SQLAlchemy type to support PostgreSQL pgvector's VECTOR type
     while falling back to JSON serialization for SQLite testing.
     """
+    cache_ok = True
+
     def __init__(self, dim=384):
         self.dim = dim
 

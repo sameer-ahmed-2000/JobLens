@@ -12,7 +12,7 @@ export const DashboardMetrics: React.FC<DashboardMetricsProps> = ({ metrics, isL
     return (
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-pulse">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-xs h-24" />
+          <div key={i} className="bg-surface p-5 rounded-2xl border border-gray-850 h-24" />
         ))}
       </div>
     );
@@ -20,47 +20,47 @@ export const DashboardMetrics: React.FC<DashboardMetricsProps> = ({ metrics, isL
 
   const items = [
     {
-      label: 'Total Applications',
+      label: 'TOTAL APPLICATIONS',
       value: metrics.applied + metrics.assessments + metrics.interviews + metrics.offers + metrics.rejected + metrics.withdrawn,
       subvalue: `${metrics.saved} saved`,
-      icon: <BriefcaseIcon size={20} className="text-blue-500" />,
-      bg: 'bg-blue-50',
+      icon: <BriefcaseIcon size={20} className="text-gray-400" />,
+      border: 'border-gray-800',
     },
     {
-      label: 'In Pipeline',
+      label: 'IN PIPELINE',
       value: metrics.assessments + metrics.interviews,
       subvalue: `${metrics.avg_days_in_pipeline} days avg`,
-      icon: <TrendingUpIcon size={20} className="text-violet-500" />,
-      bg: 'bg-violet-50',
+      icon: <TrendingUpIcon size={20} className="text-signal-amber" />,
+      border: 'border-gray-800',
     },
     {
-      label: 'Success Rate',
+      label: 'SUCCESS RATE',
       value: `${metrics.success_rate}%`,
       subvalue: `${metrics.offers} offers`,
-      icon: <CheckCircleIcon size={20} className="text-emerald-500" />,
-      bg: 'bg-emerald-50',
+      icon: <CheckCircleIcon size={20} className="text-focus-confirm" />,
+      border: 'border-gray-800',
     },
     {
-      label: 'Avg AI Match',
+      label: 'AVG AI MATCH',
       value: `${metrics.average_match_score}%`,
       subvalue: `${metrics.average_confidence}% confidence`,
-      icon: <AwardIcon size={20} className="text-indigo-500" />,
-      bg: 'bg-indigo-50',
+      icon: <AwardIcon size={20} className="text-focus-confirm" />,
+      border: 'border-gray-800',
     },
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
       {items.map((item, idx) => (
-        <div key={idx} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-xs flex items-center justify-between">
+        <div key={idx} className="bg-surface p-5 rounded-2xl border border-gray-850 shadow-md flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{item.label}</p>
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{item.label}</p>
             <div className="mt-1 flex flex-col">
-              <span className="text-2xl font-black text-gray-900">{item.value}</span>
-              <span className="text-xs font-medium text-gray-400 mt-0.5">{item.subvalue}</span>
+              <span className="text-2xl font-black text-text-warm">{item.value}</span>
+              <span className="text-[10px] font-bold text-gray-500 mt-0.5">{item.subvalue.toUpperCase()}</span>
             </div>
           </div>
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${item.bg}`}>
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 bg-base border ${item.border}`}>
             {item.icon}
           </div>
         </div>

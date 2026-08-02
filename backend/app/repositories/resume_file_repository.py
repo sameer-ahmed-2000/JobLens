@@ -78,13 +78,7 @@ class ResumeFileRepository:
         if not row:
             raise ValueError(f"ResumeFile record not found: {file_id}")
         row.error_message = error_message
-        
-        # If we have hit or exceeded max retries, mark as permanently failed.
-        # Otherwise, reset to pending so it can be retried.
-        if row.processing_attempts >= max_retries:
-            row.processing_status = "failed"
-        else:
-            row.processing_status = "pending"
+        row.processing_status = "failed"
             
         self.session.flush()
         return self._to_dict(row)

@@ -50,7 +50,8 @@ class ResumeRepository:
         resume_id: Optional[str] = None,
         resume_file_id: Optional[str] = None,
         version: Optional[int] = None,
-        parser_version: Optional[str] = None
+        parser_version: Optional[str] = None,
+        raw_text: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Upsert a resume, recalculate the vector embedding, and mark it active.
@@ -63,14 +64,19 @@ class ResumeRepository:
         ).update({ResumeORM.is_active: False})
 
         # Construct raw_text representation
-        raw_text = f"Title: {title}\nExperience: {years_experience} years\nSkills: {', '.join(skills)}"
+        structured_text = f"Title: {title}\nExperience: {years_experience} years\nSkills: {', '.join(skills)}"
         for p in projects:
             p_name = p.get("name") or p.get("title") or "Project"
             p_desc = p.get("description") or ""
             techs = p.get("technologies") or p.get("tech_stack") or []
-            raw_text += f"\nProject {p_name}: {p_desc}"
+            structured_text += f"\nProject {p_name}: {p_desc}"
             if techs:
-                raw_text += f" (Tech: {', '.join(techs)})"
+                structured_text += f" (Tech: {', '.join(techs)})"
+
+        if raw_text:
+            combined_text = structured_text + "\n--- RAW EXTRACTED TEXT ---\n" + raw_text
+        else:
+            combined_text = structured_text
 
         # Compute embedding using embedding_service (mimicking resume_index logic)
         skills_text = "Skills: " + ", ".join(skills)
@@ -102,11 +108,11 @@ class ResumeRepository:
         if not resume:
             resume = self.session.query(ResumeORM).filter(
                 ResumeORM.user_id == user_id, 
-                ResumeORM.raw_text == raw_text
+                ResumeORM.raw_text == combined_text
             ).first()
 
         if resume:
-            resume.raw_text = raw_text
+            resume.raw_text = combined_text
             resume.parsed_skills = skills
             resume.embedding = embedding
             resume.is_active = True
@@ -124,7 +130,7 @@ class ResumeRepository:
 
             resume = ResumeORM(
                 user_id=user_id,
-                raw_text=raw_text,
+                raw_text=combined_text,
                 parsed_skills=skills,
                 embedding=embedding,
                 is_active=True,
@@ -175,7 +181,12 @@ class ResumeRepository:
         years_experience = 0.0
         projects = []
 
-        lines = resume.raw_text.split("\n")
+        # Only split and parse from the structured prefix part of raw_text
+        structured_part = resume.raw_text
+        if "\n--- RAW EXTRACTED TEXT ---\n" in resume.raw_text:
+            structured_part = resume.raw_text.split("\n--- RAW EXTRACTED TEXT ---\n", 1)[0]
+
+        lines = structured_part.split("\n")
         if lines:
             # Parse title
             if lines[0].startswith("Title: "):
@@ -203,12 +214,18 @@ class ResumeRepository:
                             techs = [t.strip() for t in tech_str.rstrip(")").split(",")]
                         projects.append({
                             "name": name,
+                            "title": name,
                             "description": desc.strip(),
                             "technologies": techs,
                             "tech_stack": techs
                         })
                     except Exception:
                         pass
+
+        # Extract only the actual raw text from raw_text column for UI display
+        display_raw_text = resume.raw_text
+        if "\n--- RAW EXTRACTED TEXT ---\n" in resume.raw_text:
+            display_raw_text = resume.raw_text.split("\n--- RAW EXTRACTED TEXT ---\n", 1)[1]
 
         return {
             "id": resume.id,
@@ -219,7 +236,7 @@ class ResumeRepository:
             "parsed_skills": resume.parsed_skills or [],
             "projects": projects,
             "embedding": resume.embedding,
-            "raw_text": resume.raw_text,
+            "raw_text": display_raw_text,
             "is_active": resume.is_active,
             "created_at": resume.created_at
         }

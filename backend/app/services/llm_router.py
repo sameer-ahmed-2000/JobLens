@@ -108,7 +108,7 @@ class OpenAICompatibleBackend:
             response = client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=200,
+                max_tokens=1000,
                 temperature=0.3,
                 timeout=timeout
             )
@@ -128,7 +128,7 @@ class OpenAICompatibleBackend:
             response = client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=500,
+                max_tokens=3000,
                 temperature=0.1,
                 timeout=timeout,
                 response_format={"type": "json_object"}
@@ -188,10 +188,10 @@ class LLMRouter(ILLMRouter):
 
         logger.info(f"LLMRouter ready: {type(self._backend).__name__}")
 
-    def generate(self, prompt: str, system_prompt: str = "", timeout: float = 10.0) -> str:
+    def generate(self, prompt: str, system_prompt: str = "", timeout: float = 30.0) -> str:
         return self._backend.generate(prompt=prompt, system_prompt=system_prompt, timeout=timeout)
 
-    def generate_json(self, prompt: str, timeout: float = 10.0) -> Any:
+    def generate_json(self, prompt: str, timeout: float = 60.0) -> Any:
         return self._backend.generate_json(prompt=prompt, timeout=timeout)
 
     # ILLMRouter interface
@@ -199,7 +199,7 @@ class LLMRouter(ILLMRouter):
         return self.generate(prompt=prompt, system_prompt=system_prompt)
 
     def generate_structured_output(self, prompt: str, schema: Any, system_prompt: str = "") -> Any:
-        return self.generate_json(prompt=prompt)
+        return self.generate_json(prompt=prompt, timeout=60.0)
 
 
 # Singleton instance — all nodes import this

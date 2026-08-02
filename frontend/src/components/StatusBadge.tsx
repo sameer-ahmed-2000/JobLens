@@ -9,24 +9,24 @@ interface StatusBadgeProps {
 export const getStatusColors = (status: string) => {
   switch (status) {
     case 'Saved':
-      return 'bg-indigo-100 text-indigo-800 border-indigo-200';
+      return 'bg-base text-gray-400 border-gray-850';
     case 'Applied':
-      return 'bg-blue-100 text-blue-800 border-blue-200';
+      return 'bg-focus-confirm/10 text-focus-confirm border-focus-confirm/20';
     case 'Assessment':
     case 'Online Assessment':
-      return 'bg-amber-100 text-amber-800 border-amber-200';
+      return 'bg-signal-amber/10 text-signal-amber border-signal-amber/20';
     case 'Technical Interview':
     case 'Manager Interview':
     case 'HR Interview':
-      return 'bg-violet-100 text-violet-800 border-violet-200';
+      return 'bg-focus-confirm/15 text-focus-confirm border-focus-confirm/25';
     case 'Offer':
-      return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      return 'bg-focus-confirm/20 text-focus-confirm border-focus-confirm/30';
     case 'Rejected':
-      return 'bg-rose-100 text-rose-800 border-rose-200';
+      return 'bg-alert-red/10 text-alert-red border-alert-red/20';
     case 'Withdrawn':
-      return 'bg-gray-100 text-gray-800 border-gray-200';
+      return 'bg-base text-gray-550 border-gray-855';
     default:
-      return 'bg-slate-100 text-slate-800 border-slate-200';
+      return 'bg-base text-gray-450 border-gray-850';
   }
 };
 
@@ -34,7 +34,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className = ''
   const colors = getStatusColors(status);
   
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${colors} ${className}`}>
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold font-mono border uppercase ${colors} ${className}`}>
       {status}
     </span>
   );

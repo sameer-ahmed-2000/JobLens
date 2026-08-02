@@ -65,6 +65,7 @@ def parse_resume_text(raw_text: str) -> Tuple[ResumeProfile, str]:
     """
     prompt = f"""You are an expert HR and AI technical recruiter.
 Analyze the following Resume Text and extract the candidate profile.
+You MUST extract ALL projects, skills, and years of experience mentioned in the resume. Do not skip, merge, or omit any project.
 Return ONLY valid JSON matching this exact schema:
 {{
   "title": "e.g. Senior Machine Learning Engineer, Software Engineer",
@@ -80,7 +81,7 @@ Return ONLY valid JSON matching this exact schema:
 }}
 
 Resume Text:
-{raw_text[:4000]}
+{raw_text[:16000]}
 """
 
     extracted_profile = None
@@ -102,7 +103,7 @@ Resume Text:
         retry_prompt = f"""Extract profile details from the resume text below. You MUST return ONLY valid JSON with keys: "title", "years_experience", "skills", "projects" (each project must have "name", "description", "technologies").
 
 Resume Text:
-{raw_text[:4000]}
+{raw_text[:16000]}
 """
         try:
             raw_res_retry = llm_router.generate_structured_output(prompt=retry_prompt, schema=ResumeProfile)

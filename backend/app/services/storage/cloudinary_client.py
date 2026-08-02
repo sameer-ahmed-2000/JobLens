@@ -98,6 +98,8 @@ def get_signed_download_url(public_id: str, expires_in_seconds: int = 300) -> st
         url = utils.private_download_url(
             public_id,
             format=ext,
+            resource_type="raw",
+            type="authenticated",
             expires_at=int(time.time() + expires_in_seconds)
         )
         return url
