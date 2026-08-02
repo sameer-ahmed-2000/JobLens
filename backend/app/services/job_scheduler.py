@@ -22,7 +22,7 @@ import time
 import logging
 import threading
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from app.config import settings
 from app.services.ingestion.pipeline import run_ingestion_pipeline
 
@@ -54,7 +54,7 @@ class JobScheduler:
     def trigger_now(self, keywords: Optional[List[str]] = None, location: Optional[str] = None, force: bool = False) -> Dict[str, Any]:
         """Manually trigger ingestion pipeline execution."""
         logger.info("Triggering live job ingestion pipeline (evaluating per-source poll intervals)...")
-        self.last_run = datetime.utcnow()
+        self.last_run = datetime.now(timezone.utc)
         stats = run_ingestion_pipeline(keywords=keywords, location=location, force=force)
         self.last_stats = stats
         return stats
@@ -67,7 +67,7 @@ class JobScheduler:
         """
         min_interval = getattr(settings, "live_search_min_interval_minutes", 15)
         if not force and self.last_live_search is not None:
-            elapsed_minutes = (datetime.utcnow() - self.last_live_search).total_seconds() / 60.0
+            elapsed_minutes = (datetime.now(timezone.utc) - self.last_live_search).total_seconds() / 60.0
             if elapsed_minutes < min_interval:
                 logger.info(
                     f"Skipping live search: last run {elapsed_minutes:.1f} min ago "
@@ -76,7 +76,7 @@ class JobScheduler:
                 return {"status": "skipped_debounce", "minutes_since_last": round(elapsed_minutes, 1)}
 
         logger.info(f"Triggering resume-driven live search with keywords={keywords}, location={location}...")
-        self.last_live_search = datetime.utcnow()
+        self.last_live_search = datetime.now(timezone.utc)
         stats = run_ingestion_pipeline(keywords=keywords, location=location, force=force)
         self.last_stats = stats
         return stats

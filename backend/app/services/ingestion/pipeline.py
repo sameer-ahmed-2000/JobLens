@@ -1,6 +1,7 @@
 import time
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
+
 from typing import List, Dict, Any, Optional
 from app.config import settings
 from app.repositories.uow import UnitOfWork
@@ -112,7 +113,11 @@ def run_ingestion_pipeline(keywords: Optional[List[str]] = None, location: Optio
         if not force and src.get("last_fetched_at"):
             last_fetched = src["last_fetched_at"]
             if isinstance(last_fetched, datetime):
-                elapsed_min = (datetime.utcnow() - last_fetched).total_seconds() / 60.0
+                # Ensure naive vs aware datetime safety
+                if last_fetched.tzinfo is None:
+                    last_fetched = last_fetched.replace(tzinfo=timezone.utc)
+                elapsed_min = (datetime.now(timezone.utc) - last_fetched).total_seconds() / 60.0
+
                 poll_interval = src.get("poll_interval_minutes") or 60
                 if elapsed_min < poll_interval:
                     logger.info(f"Skipping source '{src['name']}': fetched {elapsed_min:.1f}m ago (cadence {poll_interval}m).")
@@ -227,7 +232,7 @@ def run_ingestion_pipeline(keywords: Optional[List[str]] = None, location: Optio
         with UnitOfWork() as uow:
             uow.ingestion_runs.update(
                 run_id=run_id,
-                completed_at=datetime.utcnow(),
+                completed_at=datetime.now(timezone.utc),
                 jobs_fetched=res.jobs_fetched,
                 jobs_inserted=inserted,
                 jobs_updated=updated,
@@ -239,8 +244,9 @@ def run_ingestion_pipeline(keywords: Optional[List[str]] = None, location: Optio
             from app.models.orm import JobSourceORM
             js = uow.session.query(JobSourceORM).filter(JobSourceORM.name == src["name"]).first()
             if js:
-                js.last_fetched_at = datetime.utcnow()
+                js.last_fetched_at = datetime.now(timezone.utc)
             uow.commit()
+
 
 
         total_fetched += res.jobs_fetched

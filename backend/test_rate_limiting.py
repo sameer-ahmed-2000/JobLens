@@ -30,19 +30,20 @@ def test_per_source_polling_intervals():
     from app.services.ingestion.source_registry import SourceRegistry
     from app.services.ingestion.pipeline import run_ingestion_pipeline
     from app.models.orm import JobSourceORM
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
 
     # Insert test job sources into DB with different poll intervals
     with TestSessionLocal() as session:
         session.query(JobSourceORM).delete()
         s_fast = JobSourceORM(
             id="src-1", name="Jooble:search", url="aggregator", is_active=True,
-            poll_interval_minutes=5, last_fetched_at=datetime.utcnow() - timedelta(minutes=10)
+            poll_interval_minutes=5, last_fetched_at=datetime.now(timezone.utc) - timedelta(minutes=10)
         )
         s_slow = JobSourceORM(
             id="src-2", name="Greenhouse:openai", url="openai", is_active=True,
-            poll_interval_minutes=60, last_fetched_at=datetime.utcnow() - timedelta(minutes=5)
+            poll_interval_minutes=60, last_fetched_at=datetime.now(timezone.utc) - timedelta(minutes=5)
         )
+
         session.add(s_fast)
         session.add(s_slow)
         session.commit()

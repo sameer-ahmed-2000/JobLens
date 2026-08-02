@@ -1,6 +1,6 @@
 import uuid
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Float, Integer, Boolean, Text, DateTime, ForeignKey, JSON, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import UserDefinedType
@@ -8,6 +8,10 @@ from app.database import Base
 
 def generate_uuid():
     return str(uuid.uuid4())
+
+def utcnow():
+    return datetime.now(timezone.utc)
+
 
 class VECTOR(UserDefinedType):
     """
@@ -61,7 +65,7 @@ class UserORM(Base):
     quiet_hours_start = Column(String, nullable=True)
     quiet_hours_end = Column(String, nullable=True)
     timezone = Column(String, nullable=True, default="Asia/Kolkata")
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     resumes = relationship("ResumeORM", back_populates="user", cascade="all, delete-orphan")
     resume_files = relationship("ResumeFileORM", back_populates="user", cascade="all, delete-orphan")
@@ -83,7 +87,7 @@ class ResumeFileORM(Base):
     processing_status = Column(String, default="pending", nullable=False)
     processing_attempts = Column(Integer, default=0, nullable=False)
     error_message = Column(Text, nullable=True)
-    uploaded_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    uploaded_at = Column(DateTime, default=utcnow, nullable=False)
     processed_at = Column(DateTime, nullable=True)
 
     user = relationship("UserORM", back_populates="resume_files")
@@ -99,7 +103,7 @@ class ResumeORM(Base):
     parsed_skills = Column(JSON, default=list, nullable=False)
     embedding = Column(VECTOR(384), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
     
     version = Column(Integer, default=1, nullable=False)
     parser_version = Column(String, nullable=True)
@@ -129,7 +133,7 @@ class JobMatchORM(Base):
     rationale = Column(Text, nullable=True)
     status = Column(String, default="new", nullable=False)  # new, viewed, applied, dismissed
     notified_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
 
     __table_args__ = (
@@ -146,7 +150,7 @@ class EmbeddingCacheORM(Base):
     entity_id = Column(String, nullable=False, index=True)
     section = Column(String, nullable=False, default="primary")  # e.g. "skills", "projects", "experience"
     embedding = Column(JSON, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
 
 
@@ -159,7 +163,7 @@ class CompanyORM(Base):
     industry = Column(String, nullable=True)
     logo_url = Column(String, nullable=True)
     career_url = Column(String, nullable=True, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
 
     jobs = relationship("JobORM", back_populates="company", cascade="all, delete-orphan")
 
@@ -182,8 +186,8 @@ class JobORM(Base):
     posted_date = Column(String, nullable=True)
     source = Column(String, nullable=True)
     embedding = Column(VECTOR(384), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    last_seen_at = Column(DateTime, default=datetime.utcnow, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+    last_seen_at = Column(DateTime, default=utcnow, nullable=True)
 
     company = relationship("CompanyORM", back_populates="jobs")
 
@@ -197,8 +201,8 @@ class ApplicationORM(Base):
     resume_id = Column(String, ForeignKey("resumes.id", ondelete="SET NULL"), nullable=True, index=True)  # Resume snapshot for gap report versioning
     status = Column(String, default="Saved")  # Saved, Applied, Assessment, OA, Interview, Offer, Rejected, Withdrawn
     notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     user = relationship("UserORM", back_populates="applications")
     notes_list = relationship("InterviewNoteORM", back_populates="application", cascade="all, delete-orphan")
@@ -214,7 +218,7 @@ class GapReportORM(Base):
     confidence_score = Column(Float, nullable=True)
     overall_summary = Column(Text, nullable=False)
     report_data = Column(JSON, nullable=True)
-    generated_at = Column(DateTime, default=datetime.utcnow)
+    generated_at = Column(DateTime, default=utcnow)
 
 
 class JobSourceORM(Base):
@@ -235,8 +239,8 @@ class InterviewNoteORM(Base):
     id = Column(String, primary_key=True, default=generate_uuid)
     application_id = Column(String, ForeignKey("applications.id"), nullable=False, index=True)
     note = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=True, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, nullable=True, onupdate=utcnow)
 
     application = relationship("ApplicationORM", back_populates="notes_list")
 
@@ -245,7 +249,7 @@ class IngestionRunORM(Base):
     __tablename__ = "ingestion_runs"
 
     id = Column(String, primary_key=True, default=generate_uuid)
-    started_at = Column(DateTime, default=datetime.utcnow, index=True)
+    started_at = Column(DateTime, default=utcnow, index=True)
     completed_at = Column(DateTime, nullable=True)
     source = Column(String, nullable=False, index=True)
     jobs_fetched = Column(Integer, default=0)

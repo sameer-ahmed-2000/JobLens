@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
@@ -26,7 +26,8 @@ class JobMatchRepository:
         job_id: str,
         score: float,
         rationale: Optional[str] = None,
-        status: str = "new"
+        status: str = "new",
+        match_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Upsert a job match scoring record.
@@ -40,8 +41,9 @@ class JobMatchRepository:
 
         if match:
             match.score = score
-            if rationale is not None:
+            if rationale:
                 match.rationale = rationale
+            match.status = status
         else:
             match = JobMatchORM(
                 user_id=user_id,
@@ -50,6 +52,8 @@ class JobMatchRepository:
                 rationale=rationale,
                 status=status
             )
+            if match_id:
+                match.id = match_id
             self.session.add(match)
 
         self.session.flush()
@@ -85,7 +89,8 @@ class JobMatchRepository:
             user = self.session.query(UserORM).filter(UserORM.id == user_id).first()
             min_score = user.display_threshold if user else 0.7
 
-        stale_threshold = datetime.utcnow() - timedelta(days=settings.job_stale_after_days)
+        stale_threshold = datetime.now(timezone.utc) - timedelta(days=settings.job_stale_after_days)
+
 
         query = self.session.query(JobMatchORM, JobORM).join(
             JobORM, JobMatchORM.job_id == JobORM.id

@@ -9,13 +9,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt-get/lists/*
 
-# Copy application requirements
-COPY pyproject.toml .
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir uvicorn fastapi sqlalchemy psycopg2-binary redis httpx pydantic python-dotenv numpy sentence-transformers slowapi langgraph faiss-cpu pandas orjson alembic pytest pytest-asyncio openai pyjwt
+# Install uv for fast, reliable dependency management
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# Copy backend codebase
+# Copy dependency configuration
+COPY pyproject.toml .
+
+# Synchronize dependencies from pyproject.toml
+RUN uv pip install --system --no-cache .
+
+# Copy application codebase
 COPY . .
+
+# Create non-root user for security hygiene
+RUN addgroup --system app && adduser --system --ingroup app appuser \
+    && chown -R appuser:app /app
+USER appuser
 
 EXPOSE 8000
 

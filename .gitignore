@@ -1,7 +1,8 @@
 project.md
 database.db
 *.env
-# Test artifact databases — committed by mistake, now gitignored.
-# Run: git rm --cached backend/test_*.db
-# to stop tracking existing copies without deleting them locally.
+*.db
+backend/backups/
+# Test artifact databases
 test_*.db
+

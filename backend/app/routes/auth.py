@@ -2,7 +2,7 @@ import hashlib
 import logging
 import secrets
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -19,8 +19,9 @@ def create_jwt_token(user_id: str, email: str) -> str:
     """
     Generates a signed JWT token for the given user.
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     expire = now + timedelta(minutes=settings.jwt_expiration_minutes)
+
     payload = {
         "sub": user_id,
         "email": email,

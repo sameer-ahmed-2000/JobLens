@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models.orm import ApplicationORM, JobORM, CompanyORM, GapReportORM
@@ -75,7 +75,7 @@ class ApplicationRepository:
         """Create a new application with status='Saved'. Raises ValueError on duplicate."""
         if self.application_exists(user_id, job_id):
             raise ValueError(f"Application already exists for job_id={job_id}")
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         app = ApplicationORM(
             user_id=user_id,
             job_id=job_id,
@@ -92,7 +92,7 @@ class ApplicationRepository:
     def create(self, user_id: str, job_id: str, status: str = "Saved", notes: Optional[str] = None) -> Dict[str, Any]:
         if self.application_exists(user_id, job_id):
             raise ValueError(f"Application already exists for job_id={job_id}")
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         app = ApplicationORM(user_id=user_id, job_id=job_id, status=status, notes=notes, created_at=now, updated_at=now)
         self.session.add(app)
         self.session.flush()
@@ -110,7 +110,8 @@ class ApplicationRepository:
         if not app:
             return None
         app.status = status
-        app.updated_at = datetime.utcnow()
+        app.updated_at = datetime.now(timezone.utc)
+
         if notes is not None:
             app.notes = notes
         self.session.flush()

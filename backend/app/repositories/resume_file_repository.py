@@ -1,5 +1,6 @@
 from typing import Optional, Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timezone
+
 from sqlalchemy.orm import Session
 from app.models.orm import ResumeFileORM
 
@@ -68,8 +69,9 @@ class ResumeFileRepository:
             raise ValueError(f"ResumeFile record not found: {file_id}")
         row.processing_status = "complete"
         row.resume_id = resume_id
-        row.processed_at = datetime.utcnow()
+        row.processed_at = datetime.now(timezone.utc)
         row.error_message = None
+
         self.session.flush()
         return self._to_dict(row)
 

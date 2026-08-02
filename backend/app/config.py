@@ -10,8 +10,10 @@ if _raw_db_url.startswith("postgres://"):
 
 class Settings(BaseModel):
     app_name: str = "JobLens MVP"
+    environment: str = os.getenv("ENVIRONMENT", "development").lower()
 
     # LLM Provider selection
+
     # Legacy single-provider var — kept as the default when role-specific vars are unset.
     # Set LLM_PROVIDER_DEFAULT (or the old LLM_PROVIDER) to choose the global fallback.
     llm_provider_default: str = os.getenv(
@@ -129,3 +131,27 @@ object.__setattr__(
     "redis_url",
     _ru
 )
+
+
+def validate_jwt_secret(settings_obj=None):
+    """
+    Validates JWT_SECRET_KEY security.
+    Evaluates dynamically from environment variables at execution time to support runtime environment changes.
+    Raises RuntimeError if insecure in non-development environments; logs a warning in development mode.
+    """
+    target = settings_obj or settings
+    env = os.getenv("ENVIRONMENT", target.environment).lower()
+    secret = os.getenv("JWT_SECRET_KEY", target.jwt_secret_key)
+    
+    if secret == "super-secret-key-change-me":
+        if env != "development":
+            raise RuntimeError(
+                "CRITICAL SECURITY FAILURE: JWT_SECRET_KEY is set to default insecure key "
+                f"('super-secret-key-change-me') in non-development environment '{env}'! Refusing to start."
+            )
+        import logging
+        logging.getLogger("app.config").warning(
+            "SECURITY WARNING: JWT_SECRET_KEY is set to default insecure key ('super-secret-key-change-me'). "
+            "Set a strong JWT_SECRET_KEY before deploying to production!"
+        )
+

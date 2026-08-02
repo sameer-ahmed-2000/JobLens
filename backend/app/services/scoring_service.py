@@ -2,7 +2,7 @@ import time
 import threading
 import logging
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 from app.repositories.uow import UnitOfWork
 from app.services.similarity import cosine_similarity
@@ -85,8 +85,9 @@ class ActiveResumesCache:
         # Atomically swap reference under lock to prevent race conditions during updates
         with self._lock:
             self._cache = new_cache
-        self._last_refreshed_at = datetime.utcnow()
+        self._last_refreshed_at = datetime.now(timezone.utc)
         logger.info(f"Refreshed active resumes cache. Loaded {len(new_cache)} active resumes.")
+
 
     def get_all(self) -> Dict[str, Dict[str, Any]]:
         with self._lock:

@@ -5,6 +5,10 @@ from app.routes.api import router as api_router
 from app.routes.applications import router as applications_router
 from app.routes.dashboard import router as dashboard_router
 from app.routes.auth import router as auth_router
+from app.routes.resumes import router as resumes_router
+from app.routes.matches import router as matches_router
+from app.routes.streaming import router as streaming_router
+from app.routes.admin import router as admin_router
 from app.config import settings
 from app.services.llm_router_factory import get_llm_router
 
@@ -38,13 +42,21 @@ from app.services.seeder import seed_if_empty
 
 app.include_router(auth_router, prefix="/api")
 app.include_router(api_router, prefix="/api")
+app.include_router(resumes_router, prefix="/api")
+app.include_router(matches_router, prefix="/api")
+app.include_router(streaming_router, prefix="/api")
+app.include_router(admin_router, prefix="/api")
 app.include_router(applications_router, prefix="/api")
 app.include_router(dashboard_router, prefix="/api")
 
 
 
+
 @app.on_event("startup")
 async def startup_event():
+    from app.config import validate_jwt_secret
+    validate_jwt_secret()
+
     try:
         # Install CorrelationIdFilter on the root logger so every module's
         # log records carry the current correlation_id field automatically.
@@ -61,6 +73,8 @@ async def startup_event():
         job_scheduler.start(run_immediately=True)
     except Exception:
         logger.exception("Startup initialization failed")
+        raise
+
 
 
 @app.on_event("shutdown")

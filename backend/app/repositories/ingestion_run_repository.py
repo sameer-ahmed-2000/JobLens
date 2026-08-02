@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from app.models.orm import IngestionRunORM
@@ -11,8 +11,9 @@ class IngestionRunRepository:
         run = IngestionRunORM(
             source=source,
             status=status,
-            started_at=datetime.utcnow()
+            started_at=datetime.now(timezone.utc)
         )
+
         self.session.add(run)
         self.session.flush()
         return self._to_dict(run)

@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from app.models.orm import InterviewNoteORM
 
@@ -21,7 +21,7 @@ class InterviewNoteRepository:
         note = InterviewNoteORM(
             application_id=application_id,
             note=content,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
         self.session.add(note)
         self.session.flush()
@@ -32,7 +32,8 @@ class InterviewNoteRepository:
         if not note:
             return None
         note.note = content
-        note.updated_at = datetime.utcnow()
+        note.updated_at = datetime.now(timezone.utc)
+
         self.session.flush()
         return self._to_dict(note)
 

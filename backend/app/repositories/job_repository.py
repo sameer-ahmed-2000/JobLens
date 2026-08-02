@@ -70,7 +70,7 @@ class JobRepository:
         if job:
             job.title = title
             job.description = description
-            job.last_seen_at = datetime.utcnow()
+            job.last_seen_at = datetime.now(timezone.utc)
             if resolved_company_id:
                 job.company_id = resolved_company_id
             if source:
@@ -112,7 +112,7 @@ class JobRepository:
                 experience_required=experience_required,
                 posted_date=posted_date,
                 embedding=embedding,
-                last_seen_at=datetime.utcnow()
+                last_seen_at=datetime.now(timezone.utc)
             )
             if job_id:
                 job.id = job_id

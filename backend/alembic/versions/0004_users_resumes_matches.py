@@ -98,7 +98,8 @@ def upgrade() -> None:
                 "parsed_skills": s_names,
                 "embedding": embedding,
                 "is_active": True,
-                "created_at": datetime.utcnow()
+                "created_at": datetime.now(timezone.utc)
+
             })
     except Exception as e:
         print(f"Skipping migration data extraction (tables might be empty or missing): {e}")

@@ -11,6 +11,8 @@ from concurrent.futures import ThreadPoolExecutor
 import httpx
 import redis
 from typing import Optional
+from datetime import datetime, timezone
+
 
 
 # Ensure backend directory is in sys.path
@@ -241,8 +243,9 @@ Do not invent experience."""
                 with UnitOfWork() as uow:
                     m = uow.session.query(JobMatchORM).filter(JobMatchORM.id == job_match_id).first()
                     if m:
-                        m.notified_at = datetime.utcnow()
+                        m.notified_at = datetime.now(timezone.utc)
                         uow.commit()
+
         except Exception as e:
             logger.error(f"Failed to dispatch alert to user {user_id}: {e}", exc_info=True)
 

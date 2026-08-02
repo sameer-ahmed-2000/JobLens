@@ -4,7 +4,8 @@ import sys
 import time
 import json
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+
 from unittest.mock import patch, MagicMock, PropertyMock
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -128,14 +129,14 @@ def test_matches_backfill_endpoint():
                 user_id=user_id,
                 job_id=job_old.id,
                 score=0.85,
-                created_at=datetime.utcnow() - timedelta(minutes=10)
+                created_at=datetime.now(timezone.utc) - timedelta(minutes=10)
             )
             # Match 2 (Created 5 seconds ago)
             match_new = JobMatchORM(
                 user_id=user_id,
                 job_id=job_new.id,
                 score=0.92,
-                created_at=datetime.utcnow() - timedelta(seconds=5)
+                created_at=datetime.now(timezone.utc) - timedelta(seconds=5)
             )
             uow.session.add(match_old)
             uow.session.add(match_new)
@@ -148,7 +149,7 @@ def test_matches_backfill_endpoint():
         assert len(matches_all) >= 2
         
         # Filter since 1 minute ago (should only return match_new)
-        since_time = (datetime.utcnow() - timedelta(minutes=1)).isoformat() + "Z"
+        since_time = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
         res_filtered = client.get(f"/api/matches?since={since_time}", headers=headers)
         assert res_filtered.status_code == 200
         matches_filtered = res_filtered.json()

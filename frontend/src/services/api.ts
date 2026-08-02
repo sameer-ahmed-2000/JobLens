@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { DEFAULT_USER_TOKEN } from '../constants/auth';
 import type { ScoredPosting, GapReport, GapReportRequest, Application, InterviewNote, DashboardMetrics, ApplicationStatus, UserProfile, NotificationItem } from '../types';
 
 
@@ -13,12 +14,13 @@ const apiClient = axios.create({
 
 // Axios interceptor to attach dynamic authorization bearer token from sessionStorage
 apiClient.interceptors.request.use((config) => {
-  const token = sessionStorage.getItem('joblens_auth_token') || 'default-user-token';
+  const token = sessionStorage.getItem('joblens_auth_token') || DEFAULT_USER_TOKEN;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
+
 
 export const createStreamTicket = async (): Promise<string> => {
   const response = await apiClient.post<{ ticket: string }>('/api/stream/ticket');
