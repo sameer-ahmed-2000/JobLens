@@ -44,7 +44,7 @@ class Settings(BaseModel):
 
     # Gemini (Google — structured JSON extraction)
     gemini_api_key: str = os.getenv("GEMINI_API_KEY", "")
-    gemini_model: str = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+    gemini_model: str = os.getenv("GEMINI_MODEL", "")
 
     top_n_rationales: int = int(os.getenv("TOP_N_RATIONALES", "10"))
     job_stale_after_days: int = int(os.getenv("JOB_STALE_AFTER_DAYS", "14"))

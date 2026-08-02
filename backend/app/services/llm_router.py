@@ -143,55 +143,6 @@ class OpenAICompatibleBackend:
 
 
 # ---------------------------------------------------------------------------
-# Backend: Gemini (Google Generative AI)
-# ---------------------------------------------------------------------------
-class GeminiBackend:
-    """Google Gemini backend using the google-generativeai SDK."""
-
-    def __init__(self, api_key: str, model: str):
-        self.api_key = api_key
-        self.model = model
-
-    def _get_client(self):
-        try:
-            import google.generativeai as genai
-            genai.configure(api_key=self.api_key)
-            return genai.GenerativeModel(self.model)
-        except ImportError:
-            raise RuntimeError(
-                "google-generativeai package not installed. Run: pip install google-generativeai"
-            )
-
-    def generate(self, prompt: str, system_prompt: str = "", timeout: float = 30.0) -> str:
-        try:
-            client = self._get_client()
-            full_prompt = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
-            response = client.generate_content(full_prompt)
-            text = response.text or ""
-            return text.strip() or "Rationale unavailable."
-        except Exception as e:
-            logger.warning(f"Gemini generation failed gracefully: {e}")
-            return "Rationale unavailable."
-
-    def generate_json(self, prompt: str, timeout: float = 30.0) -> Any:
-        try:
-            import google.generativeai as genai
-            genai.configure(api_key=self.api_key)
-            model = genai.GenerativeModel(
-                self.model,
-                generation_config={"response_mime_type": "application/json"}
-            )
-            response = model.generate_content(prompt)
-            raw = response.text or "{}"
-            return json.loads(raw)
-        except json.JSONDecodeError as e:
-            logger.warning(f"Gemini JSON parse error: {e}")
-        except Exception as e:
-            logger.warning(f"Gemini JSON generation failed gracefully: {e}")
-        return None
-
-
-# ---------------------------------------------------------------------------
 # Unified LLMRouter — provider-agnostic, role-scoped
 # ---------------------------------------------------------------------------
 class LLMRouter(ILLMRouter):
@@ -261,13 +212,17 @@ class LLMRouter(ILLMRouter):
                 )
 
         elif resolved == "gemini":
+            # Gemini exposes an OpenAI-compatible endpoint — no separate SDK needed.
+            # https://ai.google.dev/gemini-api/docs/openai
             if not settings.gemini_api_key:
                 self._warn_fallback("GEMINI_API_KEY")
                 self._backend = OllamaBackend()
             else:
-                self._backend = GeminiBackend(
+                self._backend = OpenAICompatibleBackend(
+                    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
                     api_key=settings.gemini_api_key,
                     model=settings.gemini_model,
+                    provider_name="Gemini"
                 )
 
         else:

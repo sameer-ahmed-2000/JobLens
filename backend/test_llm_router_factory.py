@@ -5,32 +5,25 @@ Verifies:
 1. lru_cache returns the SAME instance for repeated calls to the same role.
 2. Different roles return DIFFERENT instances.
 3. Each instance carries the correct role attribute.
-4. Per-role provider resolution: when env vars differ per role, the resolved
-   provider names differ accordingly.
+4. Per-role provider resolution: when settings differ per role, the resolved
+   provider names differ accordingly (uses patch.object on the settings singleton).
+5. Legacy LLM_PROVIDER fallback: old single-var still works as default.
+
+Note on cache isolation:
+  The autouse fixture in conftest.py clears get_llm_router.cache_clear()
+  before AND after every test, so these tests are fully isolated from each
+  other and from the rest of the suite.
 """
-import os
-import sys
-
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
 import logging
 import pytest
 from unittest.mock import patch
-from functools import lru_cache
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s - %(message)s")
 logger = logging.getLogger("test_llm_router_factory")
 
 
-def _clear_factory_cache():
-    """Clear the lru_cache between tests so env-var patches take effect."""
-    from app.services import llm_router_factory
-    llm_router_factory.get_llm_router.cache_clear()
-
-
 def test_cache_returns_same_instance_for_same_role():
     """Repeated calls for the same role must return the identical object (lru_cache identity)."""
-    _clear_factory_cache()
     from app.services.llm_router_factory import get_llm_router
 
     router_a = get_llm_router("rationale")
@@ -44,7 +37,6 @@ def test_cache_returns_same_instance_for_same_role():
 
 def test_different_roles_return_different_instances():
     """Different roles must return independent router instances."""
-    _clear_factory_cache()
     from app.services.llm_router_factory import get_llm_router
 
     rationale_router = get_llm_router("rationale")
@@ -57,7 +49,6 @@ def test_different_roles_return_different_instances():
 
 def test_router_carries_correct_role():
     """Each router's .role attribute matches the key it was created with."""
-    _clear_factory_cache()
     from app.services.llm_router_factory import get_llm_router
 
     for role in ["rationale", "gap_analysis", "resume_parsing", "notification"]:
@@ -70,11 +61,16 @@ def test_router_carries_correct_role():
 
 def test_per_role_provider_resolution():
     """
-    When LLM_PROVIDER_RATIONALE=groq and LLM_PROVIDER_GAP_ANALYSIS=gemini are set,
-    the two routers should resolve to different requested_provider values.
+    When rationale=groq and gap_analysis=gemini are configured, the two routers
+    resolve to different requested_provider values and different backend classes.
+
+    Both now use OpenAICompatibleBackend (Groq at api.groq.com, Gemini at
+    generativelanguage.googleapis.com/v1beta/openai/) — no separate GeminiBackend
+    class needed since Gemini's compat endpoint supports the same OpenAI SDK
+    interface including response_format=json_object.
     """
     from app.config import settings
-    from app.services.llm_router import LLMRouter
+    from app.services.llm_router import LLMRouter, OpenAICompatibleBackend
 
     with patch.object(settings, "llm_provider_rationale", "groq"), \
          patch.object(settings, "groq_api_key", "test-groq-key"), \
@@ -90,17 +86,23 @@ def test_per_role_provider_resolution():
         assert gap_router.requested_provider == "gemini", (
             f"Expected gap_analysis to use 'gemini', got '{gap_router.requested_provider}'"
         )
-        assert rationale_router.requested_provider != gap_router.requested_provider, (
-            "rationale and gap_analysis should have different providers."
-        )
+        assert rationale_router.requested_provider != gap_router.requested_provider
+
+        # Both use OpenAICompatibleBackend — different provider_name + base_url
+        assert isinstance(rationale_router._backend, OpenAICompatibleBackend)
+        assert isinstance(gap_router._backend, OpenAICompatibleBackend)
+        assert rationale_router._backend.provider_name == "Groq"
+        assert gap_router._backend.provider_name == "Gemini"
+        assert "groq.com" in rationale_router._backend.base_url
+        assert "generativelanguage" in gap_router._backend.base_url
 
     logger.info("PASS: Per-role provider resolution works correctly.")
 
 
 def test_legacy_llm_provider_fallback():
     """
-    If no role-specific vars are set but the legacy LLM_PROVIDER default is freemodel,
-    all roles should fall back to freemodel.
+    If no role-specific vars are set but the legacy LLM_PROVIDER_DEFAULT is freemodel,
+    all roles should resolve to freemodel.
     """
     from app.config import settings
     from app.services.llm_router import LLMRouter
@@ -119,9 +121,17 @@ def test_legacy_llm_provider_fallback():
 
 
 if __name__ == "__main__":
-    test_cache_returns_same_instance_for_same_role()
-    test_different_roles_return_different_instances()
-    test_router_carries_correct_role()
-    test_per_role_provider_resolution()
-    test_legacy_llm_provider_fallback()
+    # When run directly (not via pytest), manually simulate the autouse fixture.
+    from app.services import llm_router_factory
+
+    def run(fn):
+        llm_router_factory.get_llm_router.cache_clear()
+        fn()
+        llm_router_factory.get_llm_router.cache_clear()
+
+    run(test_cache_returns_same_instance_for_same_role)
+    run(test_different_roles_return_different_instances)
+    run(test_router_carries_correct_role)
+    run(test_per_role_provider_resolution)
+    run(test_legacy_llm_provider_fallback)
     logger.info("=== All llm_router_factory tests passed! ===")
