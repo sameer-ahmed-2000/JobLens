@@ -40,7 +40,7 @@ JobLens uses several external services. Here is how to obtain and configure all 
 JobLens supports multiple LLM providers via `llm_router.py`:
 * **FreeModel.dev (Pre-configured Default)**:
   * Uses an OpenAI-compatible API endpoint.
-  * An active free key is already included in `backend/.env`: `FREEMODEL_API_KEY=REDACTED_API_KEY`
+  * An active free key is already included in `backend/.env`: `FREEMODEL_API_KEY=your_freemodel_api_key_here`
 * **Local Ollama (Alternative)**:
   * Install [Ollama](https://ollama.ai) and pull Llama 3: `ollama pull llama3`
   * Set `LLM_PROVIDER=ollama` in `backend/.env`.
@@ -90,7 +90,7 @@ JobLens supports multiple LLM providers via `llm_router.py`:
 1. **Root Environment File** (used by Docker Compose and local processes):
    Create a `.env` file in the root directory:
    ```env
-   REDIS_PASSWORD=REDACTED_PASSWORD
+   REDIS_PASSWORD=your_redis_password_here
    # Or a complete Redis URL (e.g. for Upstash secure Redis):
    REDIS_URL="rediss://default:password@host:port"
    ```
@@ -110,7 +110,7 @@ JobLens supports multiple LLM providers via `llm_router.py`:
 
    # LLM Configuration
    LLM_PROVIDER=freemodel
-   FREEMODEL_API_KEY=REDACTED_API_KEY
+   FREEMODEL_API_KEY=your_freemodel_api_key_here
    FREEMODEL_BASE_URL=https://api.freemodel.dev/v1
    FREEMODEL_MODEL=auto
 
@@ -120,7 +120,7 @@ JobLens supports multiple LLM providers via `llm_router.py`:
    # Fallback components if REDIS_URL is not set:
    REDIS_HOST=localhost
    REDIS_PORT=6379
-   REDIS_PASSWORD=REDACTED_PASSWORD
+   REDIS_PASSWORD=your_redis_password_here
 
    # Aggregators
    ADZUNA_APP_ID=your_adzuna_app_id
