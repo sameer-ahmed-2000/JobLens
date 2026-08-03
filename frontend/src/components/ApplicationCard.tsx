@@ -8,14 +8,17 @@ interface ApplicationCardProps {
   application: Application;
   isSelected: boolean;
   onClick: () => void;
+  onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
 }
 
-export const ApplicationCard: React.FC<ApplicationCardProps> = ({ application, isSelected, onClick }) => {
+export const ApplicationCard: React.FC<ApplicationCardProps> = ({ application, isSelected, onClick, onDragStart }) => {
   const dateStr = new Date(application.updated_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
   return (
     <div
       onClick={onClick}
+      draggable={!!onDragStart}
+      onDragStart={onDragStart}
       className={`viewfinder-bracket-container p-4 rounded-xl border text-left transition-all duration-150 cursor-pointer shadow-md relative ${
         isSelected
           ? 'viewfinder-active bg-surface border-gray-800'

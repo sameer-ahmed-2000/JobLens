@@ -7,6 +7,7 @@ interface ApplicationBoardProps {
   applications: Application[];
   selectedAppId?: string;
   onSelectApp: (app: Application) => void;
+  onDropApp?: (appId: string, status: string) => void;
 }
 
 const COLUMNS = [
@@ -21,21 +22,23 @@ export const ApplicationBoard: React.FC<ApplicationBoardProps> = ({
   applications,
   selectedAppId,
   onSelectApp,
+  onDropApp,
 }) => {
   return (
-    <div className="flex overflow-x-auto pb-4 gap-4 snap-x">
+    <div className="flex overflow-x-auto pb-4 gap-4 snap-x h-full">
       {COLUMNS.map((col) => {
         const colApps = applications.filter((app) => col.statuses.includes(app.status));
         const colorClass = getStatusColors(col.statuses[0]);
 
         return (
-          <div key={col.id} className="snap-start h-full">
+          <div key={col.id} className="snap-start h-full min-h-0">
             <ApplicationColumn
               title={col.title}
               statusColorClass={colorClass}
               applications={colApps}
               selectedAppId={selectedAppId}
               onSelectApp={onSelectApp}
+              onDropApp={onDropApp ? (appId) => onDropApp(appId, col.statuses[0]) : undefined}
             />
           </div>
         );

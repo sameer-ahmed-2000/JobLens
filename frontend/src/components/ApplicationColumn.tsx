@@ -8,6 +8,7 @@ interface ApplicationColumnProps {
   applications: Application[];
   selectedAppId?: string;
   onSelectApp: (app: Application) => void;
+  onDropApp?: (appId: string) => void;
 }
 
 export const ApplicationColumn: React.FC<ApplicationColumnProps> = ({
@@ -16,9 +17,29 @@ export const ApplicationColumn: React.FC<ApplicationColumnProps> = ({
   applications,
   selectedAppId,
   onSelectApp,
+  onDropApp,
 }) => {
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    if (onDropApp) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    if (onDropApp) {
+      e.preventDefault();
+      const appId = e.dataTransfer.getData('text/plain');
+      if (appId) onDropApp(appId);
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full bg-surface/40 rounded-2xl border border-gray-850 w-full min-w-[280px] max-w-[320px] shrink-0 font-body">
+    <div 
+      className="flex flex-col h-full bg-surface/40 rounded-2xl border border-gray-850 w-full min-w-[280px] max-w-[320px] shrink-0 font-body transition-colors hover:bg-surface/60"
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
       {/* Column Header */}
       <div className="p-4 border-b border-gray-850 flex justify-between items-center bg-surface rounded-t-2xl font-mono">
         <div className="flex items-center gap-2">
@@ -31,7 +52,7 @@ export const ApplicationColumn: React.FC<ApplicationColumnProps> = ({
       </div>
 
       {/* Column Content */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+      <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-3">
         {applications.length === 0 ? (
           <div className="h-24 flex items-center justify-center border-2 border-dashed border-gray-850 rounded-xl">
             <span className="text-xs font-semibold font-mono text-gray-550">EMPTY COLUMN</span>
@@ -43,6 +64,10 @@ export const ApplicationColumn: React.FC<ApplicationColumnProps> = ({
               application={app}
               isSelected={app.id === selectedAppId}
               onClick={() => onSelectApp(app)}
+              onDragStart={(e) => {
+                e.dataTransfer.setData('text/plain', app.id);
+                e.dataTransfer.effectAllowed = 'move';
+              }}
             />
           ))
         )}

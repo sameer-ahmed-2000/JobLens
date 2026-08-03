@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import type { Application } from '../types';
-import { getApplications, getDashboardMetrics } from '../services/api';
+import { getApplications, getDashboardMetrics, updateApplicationStatus } from '../services/api';
 import { DashboardMetrics } from '../components/DashboardMetrics';
 import { ApplicationBoard } from '../components/ApplicationBoard';
 import { ApplicationDrawer } from '../components/ApplicationDrawer';
@@ -11,7 +11,21 @@ import { SparklesIcon } from '../components/icons';
 
 const CareerWorkspace: React.FC = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
+
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ appId, status }: { appId: string; status: any }) =>
+      updateApplicationStatus(appId, status),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['applications'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard_metrics'] });
+    },
+  });
+
+  const handleDropApp = (appId: string, status: string) => {
+    updateStatusMutation.mutate({ appId, status });
+  };
 
   // Fetch applications
   const { 
@@ -74,6 +88,7 @@ const CareerWorkspace: React.FC = () => {
           applications={applications}
           selectedAppId={selectedApp?.id}
           onSelectApp={setSelectedApp}
+          onDropApp={handleDropApp}
         />
       </div>
 
