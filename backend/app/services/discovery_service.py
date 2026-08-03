@@ -2,6 +2,7 @@ import time
 import logging
 from typing import List, Optional
 from fastapi import HTTPException
+from starlette.concurrency import run_in_threadpool
 from app.models.schemas import ScoredPosting
 from app.graphs.discovery_graph import discovery_graph
 from app.config import settings
@@ -34,7 +35,7 @@ class DiscoveryService:
 
         # 2. Run LangGraph discovery pipeline
         try:
-            state = discovery_graph.invoke({"user_id": user_id})
+            state = await run_in_threadpool(discovery_graph.invoke, {"user_id": user_id})
         except FileNotFoundError as e:
             logger.error(f"Discovery pipeline failed (File not found): {e}")
             raise HTTPException(status_code=404, detail=f"Data file missing: {str(e)}")

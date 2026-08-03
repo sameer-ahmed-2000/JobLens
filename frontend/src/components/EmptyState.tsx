@@ -14,14 +14,14 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 }) => {
   if (type === 'list') {
     return (
-      <div className="bg-white rounded-xl border border-dashed border-gray-300 p-8 text-center my-4">
-        <div className="w-12 h-12 rounded-full bg-gray-50 border border-gray-200 text-gray-400 flex items-center justify-center mx-auto mb-3">
+      <div className="bg-surface rounded-xl border border-dashed border-gray-800 p-8 text-center my-4">
+        <div className="w-12 h-12 rounded-full bg-base border border-gray-800 text-gray-400 flex items-center justify-center mx-auto mb-3">
           <SearchIcon size={22} />
         </div>
-        <h4 className="text-base font-bold text-gray-800">
+        <h4 className="text-base font-bold text-text-warm">
           {title || 'No jobs match your criteria'}
         </h4>
-        <p className="text-xs text-gray-500 max-w-sm mx-auto mt-1">
+        <p className="text-xs text-gray-400 max-w-sm mx-auto mt-1">
           {message || 'Try adjusting your search terms, minimum match percentage, or source filter.'}
         </p>
       </div>
@@ -29,22 +29,23 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-10 text-center flex flex-col items-center justify-center min-h-[450px]">
-      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-100 text-indigo-600 flex items-center justify-center mb-4 shadow-2xs">
+    <div className="bg-surface rounded-2xl border border-gray-850 shadow-md p-10 text-center flex flex-col items-center justify-center min-h-[450px]">
+      <div className="w-16 h-16 rounded-2xl bg-base border border-gray-800 text-focus-confirm flex items-center justify-center mb-4 shadow-sm">
         <SparklesIcon size={32} />
       </div>
-      <h3 className="text-lg font-bold text-gray-900 mb-2">
+      <h3 className="text-lg font-bold text-text-warm mb-2">
         {title || 'Select a ranked job'}
       </h3>
-      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
+      <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
         or
       </p>
-      <h4 className="text-sm font-semibold text-gray-700 mb-4">
+      <h4 className="text-sm font-semibold text-gray-300 mb-4">
         Search for another role.
       </h4>
-      <div className="bg-gray-50 border border-gray-200 rounded-xl py-3 px-5 max-w-xs text-xs text-gray-600 font-medium shadow-2xs">
+      <div className="bg-base border border-gray-850 rounded-xl py-3 px-5 max-w-xs text-xs text-gray-400 font-medium">
         {message || 'The AI Gap Report & Interview Bridge suggestions will automatically appear here.'}
       </div>
     </div>
   );
 };
+

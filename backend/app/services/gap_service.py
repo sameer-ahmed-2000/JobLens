@@ -1,7 +1,9 @@
 import time
+import asyncio
 import logging
 from typing import Optional
 from fastapi import HTTPException
+from starlette.concurrency import run_in_threadpool
 from app.models.schemas import GapReport, GapReportRequest
 from app.graphs.gap_graph import gap_graph
 from app.nodes.fetch import fetch_postings
@@ -80,7 +82,7 @@ class GapService:
                 "company": company,
                 "user_id": user_id
             }
-            state = gap_graph.invoke(state_input)
+            state = await run_in_threadpool(gap_graph.invoke, state_input)
         except FileNotFoundError as e:
             logger.error(f"Gap Analysis failed (File not found): {e}")
             raise HTTPException(status_code=404, detail=f"Data file missing: {str(e)}")

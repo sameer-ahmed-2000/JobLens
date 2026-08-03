@@ -80,6 +80,11 @@ def test_node_step_by_step():
         if g.classification == "partial":
             logger.info(f"Step 4 (Bridge Suggestion for {g.skill}): {g.bridge_suggestion}")
 
+    partial_gaps = [g for g in gaps if g.classification == "partial"]
+    if len(partial_gaps) >= 2:
+        suggestions = [g.bridge_suggestion for g in partial_gaps]
+        assert len(set(suggestions)) > 1, "Multiple partial skills received identical bridge suggestions — likely a batching key-mapping bug."
+
     # 5. Generate Report
     state.update(generate_report_node(state))
     report = state.get("gap_report")
