@@ -115,6 +115,10 @@ class Settings(BaseModel):
     ocr_max_pages: int = int(os.getenv("OCR_MAX_PAGES", "5"))         # cap OCR cost/time on large scanned docs
     ocr_timeout_seconds: int = int(os.getenv("OCR_TIMEOUT_SECONDS", "60"))  # per-page OCR timeout in seconds
 
+    # Background keyword rotation — how many users to cover per 60s scheduler tick
+    # Tune based on observed Adzuna/Jooble quota consumption once live.
+    jobs_per_user_rotation_batch_size: int = int(os.getenv("JOBS_PER_USER_ROTATION_BATCH_SIZE", "3"))
+
 # Build redis_url after Settings is instantiated.
 # Must be done at module level (not inside __init__) so that load_dotenv()
 # has already been called and os.getenv() returns the real values.

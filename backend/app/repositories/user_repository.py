@@ -1,4 +1,5 @@
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from app.models.orm import UserORM
 
@@ -96,6 +97,28 @@ class UserRepository:
         self.session.flush()
         return self._to_dict(user)
 
+    def get_users_for_rotation(self, limit: int) -> List[Dict[str, Any]]:
+        """
+        Returns the `limit` users least-recently covered by a resume-driven
+        keyword search, NULLs (never searched) first. Used by the scheduler's
+        per-tick rotation so coverage is fair over time rather than always
+        picking the same subset of users.
+        """
+        users = (
+            self.session.query(UserORM)
+            .order_by(UserORM.last_keyword_search_at.asc().nullsfirst())
+            .limit(limit)
+            .all()
+        )
+        return [self._to_dict(u) for u in users]
+
+    def update_last_keyword_search(self, user_id: str) -> None:
+        """Stamp the user as just covered by the keyword rotation."""
+        user = self.session.query(UserORM).filter(UserORM.id == user_id).first()
+        if user:
+            user.last_keyword_search_at = datetime.now(timezone.utc)
+            self.session.flush()
+
     def _to_dict(self, user: UserORM) -> Dict[str, Any]:
         return {
             "id": user.id,
@@ -108,6 +131,7 @@ class UserRepository:
             "quiet_hours_start": user.quiet_hours_start,
             "quiet_hours_end": user.quiet_hours_end,
             "timezone": user.timezone,
-            "created_at": user.created_at
+            "created_at": user.created_at,
+            "last_keyword_search_at": user.last_keyword_search_at,
         }
 

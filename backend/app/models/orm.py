@@ -66,6 +66,7 @@ class UserORM(Base):
     quiet_hours_end = Column(String, nullable=True)
     timezone = Column(String, nullable=True, default="Asia/Kolkata")
     created_at = Column(DateTime, default=utcnow)
+    last_keyword_search_at = Column(DateTime, nullable=True)  # NULL = never searched; sorts first in rotation
 
     resumes = relationship("ResumeORM", back_populates="user", cascade="all, delete-orphan")
     resume_files = relationship("ResumeFileORM", back_populates="user", cascade="all, delete-orphan")

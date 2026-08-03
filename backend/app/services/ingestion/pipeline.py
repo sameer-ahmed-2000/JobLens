@@ -18,6 +18,11 @@ from app.nodes.normalize import normalize_text
 
 logger = logging.getLogger("ingestion_pipeline")
 
+# Source type sets — used to scope pipeline runs to a subset of connectors.
+# AGGREGATOR_TYPES accept keyword/location queries; FIXED_BOARD_TYPES don't.
+AGGREGATOR_TYPES: frozenset[str] = frozenset({"adzuna", "remotive", "arbeitnow", "jooble"})
+FIXED_BOARD_TYPES: frozenset[str] = frozenset({"greenhouse", "lever", "ashby"})
+
 def _extract_location_str(raw_item: Dict[str, Any]) -> str:
     loc_parts = []
     loc_val = raw_item.get("location")
@@ -45,10 +50,26 @@ def _extract_location_str(raw_item: Dict[str, Any]) -> str:
     return " ".join([p for p in loc_parts if p]).lower()
 
 
-def run_ingestion_pipeline(keywords: Optional[List[str]] = None, location: Optional[str] = None, force: bool = False) -> Dict[str, Any]:
+def run_ingestion_pipeline(
+    keywords: Optional[List[str]] = None,
+    location: Optional[str] = None,
+    force: bool = False,
+    source_types: Optional[frozenset[str]] = None,
+) -> Dict[str, Any]:
     """
     Execute live ingestion across enabled sources in registry.
-    Connectors fetch raw jobs -> Pipeline filters & normalizes -> Deterministic Deduplication -> Incremental PostgreSQL update -> Enqueue for embedding.
+
+    Args:
+        keywords:     Resume-derived search terms injected into aggregator queries.
+        location:     Optional location filter.
+        force:        Bypass per-source poll_interval_minutes cadence gate.
+        source_types: Optional set of source type strings to restrict which
+                      connectors run (e.g. AGGREGATOR_TYPES or FIXED_BOARD_TYPES).
+                      None (default) runs all active sources — preserves existing
+                      behavior for every call site that doesn’t opt in.
+
+    Connectors fetch raw jobs -> Pipeline filters & normalizes -> Deterministic
+    Deduplication -> Incremental PostgreSQL update -> Enqueue for embedding.
     """
     start_time = time.time()
     logger.info("=== Starting Live Job Ingestion Pipeline ===")
@@ -66,10 +87,6 @@ def run_ingestion_pipeline(keywords: Optional[List[str]] = None, location: Optio
         "arbeitnow": ArbeitnowConnector(),
         "jooble": JoobleConnector()
     }
-
-    # Aggregator sources are keyword/location-driven rather than fixed-board,
-    # so they need the resume-derived query injected into their source_config.
-    AGGREGATOR_TYPES = {"adzuna", "remotive", "arbeitnow", "jooble"}
 
     # Global deduplication trackers across all sources in this run
     seen_urls = set()
@@ -95,6 +112,11 @@ def run_ingestion_pipeline(keywords: Optional[List[str]] = None, location: Optio
 
     for src in sources:
         source_type = src["source_type"].lower()
+
+        # source_types scope filter: skip sources not in the requested set
+        if source_types is not None and source_type not in source_types:
+            continue
+
         if source_type == "greenhouse" and not getattr(settings, "greenhouse_enabled", True):
             continue
         if source_type == "lever" and not getattr(settings, "lever_enabled", True):
