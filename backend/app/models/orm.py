@@ -89,6 +89,7 @@ class ResumeFileORM(Base):
     error_message = Column(Text, nullable=True)
     uploaded_at = Column(DateTime, default=utcnow, nullable=False)
     processed_at = Column(DateTime, nullable=True)
+    extraction_method = Column(String, nullable=True)  # "text_layer" | "ocr" | "vision_ocr"
 
     user = relationship("UserORM", back_populates="resume_files")
     resume = relationship("ResumeORM", foreign_keys=[resume_id], uselist=False)

@@ -200,3 +200,19 @@ To verify database backup restoration against a temporary test database:
 cd backend
 python scripts/backup_db.py --restore-drill ./backups/joblens_backup_20260720_230513.sql
 ```
+
+---
+
+## ⚡ Concurrency & Event Loop Best Practices
+
+Any synchronous/blocking call (e.g. LangGraph `.invoke()`, synchronous `httpx.Client` LLM calls, heavy CPU/file I/O) inside an `async def` route or service method **MUST** be offloaded using Starlette's `run_in_threadpool`:
+
+```python
+from starlette.concurrency import run_in_threadpool
+
+# Offload synchronous execution to FastAPI worker thread pool
+state = await run_in_threadpool(discovery_graph.invoke, {"user_id": user_id})
+```
+
+Because FastAPI runs on a single Uvicorn event loop per worker, an unwrapped synchronous blocking call halts the entire server and stalls all concurrent requests from other users.
+

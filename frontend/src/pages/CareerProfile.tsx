@@ -7,9 +7,11 @@ import {
   reprocessResume, 
   getResumeDownloadUrl, 
   createStreamTicket,
+  getProfile,
   QUERY_CONFIG 
 } from '../services/api';
 import type { ResumeFile, ActiveResume } from '../services/api';
+import type { UserProfile } from '../types';
 
 
 export const CareerProfile: React.FC = () => {
@@ -22,7 +24,14 @@ export const CareerProfile: React.FC = () => {
   const [dragOver, setDragOver] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
 
-  // Queries for status & active profile
+  // Queries for user account profile, status & active resume profile
+  const { data: userProfile } = useQuery<UserProfile>({
+    queryKey: ['userProfile'],
+    queryFn: getProfile,
+    ...QUERY_CONFIG,
+    retry: false,
+  });
+
   const { data: latestFile, refetch: refetchStatus } = useQuery<ResumeFile | null>({
     queryKey: ['resumeStatus'],
     queryFn: getLatestResumeStatus,
@@ -194,11 +203,11 @@ export const CareerProfile: React.FC = () => {
       )}
 
       {/* Hero RAG Workspace Title Card */}
-      <div className="bg-gradient-to-r from-indigo-900 via-indigo-950 to-slate-900 rounded-3xl p-6 md:p-8 text-white relative overflow-hidden shadow-md">
+      <div className="bg-gradient-to-r from-indigo-900 via-indigo-950 to-slate-900 rounded-3xl p-6 md:p-8 text-white relative overflow-hidden shadow-md space-y-6">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.15),transparent)] pointer-events-none" />
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-mono">
               Career RAG Profile
             </span>
             <h2 className="text-3xl font-extrabold tracking-tight">
@@ -210,12 +219,32 @@ export const CareerProfile: React.FC = () => {
           </div>
           {activeResume && (
             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 space-y-1 text-xs self-start md:self-center">
-              <span className="block text-indigo-300 font-bold uppercase text-[10px]">Active Profile Version</span>
+              <span className="block text-indigo-300 font-bold uppercase text-[10px] font-mono">Active Profile Version</span>
               <p className="font-mono font-bold text-sm">Version {activeResume.is_active ? 'Active' : 'Archived'}</p>
-              <p className="text-white/60">Extracted {new Date(activeResume.created_at).toLocaleDateString()}</p>
+              <p className="text-white/60 text-[11px]">Extracted {new Date(activeResume.created_at).toLocaleDateString()}</p>
             </div>
           )}
         </div>
+
+        {/* User Account Info Bar */}
+        {userProfile && (
+          <div className="relative z-10 pt-4 border-t border-indigo-800/60 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-mono">
+            <div className="bg-indigo-950/60 p-3 rounded-2xl border border-indigo-800/40">
+              <span className="text-indigo-400 font-bold block text-[10px] uppercase">Account User</span>
+              <span className="font-bold text-white text-sm">{userProfile.name}</span>
+            </div>
+            <div className="bg-indigo-950/60 p-3 rounded-2xl border border-indigo-800/40">
+              <span className="text-indigo-400 font-bold block text-[10px] uppercase">Email Contact</span>
+              <span className="font-bold text-white text-sm truncate block">{userProfile.email}</span>
+            </div>
+            <div className="bg-indigo-950/60 p-3 rounded-2xl border border-indigo-800/40">
+              <span className="text-indigo-400 font-bold block text-[10px] uppercase">Match Thresholds</span>
+              <span className="font-bold text-emerald-300 text-sm">
+                Display: {(userProfile.display_threshold * 100).toFixed(0)}% • Alert: {(userProfile.notify_threshold * 100).toFixed(0)}%
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">

@@ -49,9 +49,10 @@ def process_resume_file(resume_file_id: str, user_id: str) -> None:
         filename = resume_file["filename"]
         ext = filename.lower().split(".")[-1] if "." in filename else ""
         if ext == "pdf":
-            raw_text = extract_text_pdf(file_bytes)
+            raw_text, extraction_method = extract_text_pdf(file_bytes)
         elif ext == "docx":
             raw_text = extract_text_docx(file_bytes)
+            extraction_method = "text_layer"  # DOCX always has a real text layer
         else:
             raise ValueError(f"Unsupported file type for extraction: {ext}")
 
@@ -91,7 +92,7 @@ def process_resume_file(resume_file_id: str, user_id: str) -> None:
 
         # 7. Complete the circle: update resume_files with the resume_id link and mark complete
         with UnitOfWork() as uow:
-            uow.resume_files.mark_complete(resume_file_id, resume_dict["id"])
+            uow.resume_files.mark_complete(resume_file_id, resume_dict["id"], extraction_method)
             uow.commit()
 
         logger.info(f"Successfully processed resume file {resume_file_id} (user {user_id}). Version: {next_ver}.")

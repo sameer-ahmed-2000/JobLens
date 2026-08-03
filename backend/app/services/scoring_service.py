@@ -255,28 +255,30 @@ class ScoringService:
 
         scored_count = 0
         failed_count = 0
-        for job_info in job_list:
-            job_id = job_info["id"]
-            job_title = job_info["title"]
-            job_embedding = job_info["embedding"]
 
-            # Isolated per-item failure block
-            try:
-                if isinstance(job_embedding, str):
-                    job_embedding = json.loads(job_embedding)
+        with UnitOfWork() as user_uow:
+            for job_info in job_list:
+                job_id = job_info["id"]
+                job_title = job_info["title"]
+                job_embedding = job_info["embedding"]
 
-                sim = cosine_similarity(job_embedding, resume_embedding)
-                score = round(sim, 4)
+                # Isolated calculation per job
+                try:
+                    if isinstance(job_embedding, str):
+                        job_embedding = json.loads(job_embedding)
 
-                with UnitOfWork() as user_uow:
+                    sim = cosine_similarity(job_embedding, resume_embedding)
+                    score = round(sim, 4)
+
                     user_uow.job_matches.upsert(
                         user_id=user_id, job_id=job_id, score=score
                     )
-                    user_uow.commit()
-                scored_count += 1
-            except Exception as e:
-                logger.error(f"ScoringService: Failed to score job '{job_title}' ({job_id}) for user '{user_id}': {e}")
-                failed_count += 1
+                    scored_count += 1
+                except Exception as e:
+                    logger.error(f"ScoringService: Failed to score job '{job_title}' ({job_id}) for user '{user_id}': {e}")
+                    failed_count += 1
+
+            user_uow.commit()
 
         logger.info(f"ScoringService: Completed rescore for user '{user_id}'. Successful: {scored_count}, Failed: {failed_count}.")
 

@@ -63,7 +63,7 @@ class ResumeFileRepository:
         self.session.flush()
         return self._to_dict(row)
 
-    def mark_complete(self, file_id: str, resume_id: str) -> Dict[str, Any]:
+    def mark_complete(self, file_id: str, resume_id: str, extraction_method: str = "text_layer") -> Dict[str, Any]:
         row = self.session.query(ResumeFileORM).filter(ResumeFileORM.id == file_id).first()
         if not row:
             raise ValueError(f"ResumeFile record not found: {file_id}")
@@ -71,6 +71,7 @@ class ResumeFileRepository:
         row.resume_id = resume_id
         row.processed_at = datetime.now(timezone.utc)
         row.error_message = None
+        row.extraction_method = extraction_method
 
         self.session.flush()
         return self._to_dict(row)
@@ -120,5 +121,6 @@ class ResumeFileRepository:
             "processing_attempts": row.processing_attempts,
             "error_message": row.error_message,
             "uploaded_at": row.uploaded_at,
-            "processed_at": row.processed_at
+            "processed_at": row.processed_at,
+            "extraction_method": row.extraction_method,
         }

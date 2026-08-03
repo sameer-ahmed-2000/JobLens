@@ -182,8 +182,10 @@ docker ps
    ```bash
    uv run alembic upgrade head
    ```
-4. Start the FastAPI development server:
+4. Start the FastAPI development server *(must be run from inside `backend/`)*:
    ```bash
+   # Make sure you are in the backend directory first
+   # cd C:\Users\samee\Music\JobLens\backend
    uv run uvicorn app.main:app --reload --port 8000
    ```
 *Backend API will be available at [http://localhost:8000](http://localhost:8000).*  

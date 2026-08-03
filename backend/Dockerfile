@@ -7,7 +7,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     build-essential \
     libpq-dev \
-    && rm -rf /var/lib/apt-get/lists/*
+    tesseract-ocr \
+    poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install uv for fast, reliable dependency management
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/

@@ -111,6 +111,10 @@ class Settings(BaseModel):
     resume_max_size_mb: int = int(os.getenv("RESUME_MAX_SIZE_MB", "5"))
     resume_processing_max_retries: int = int(os.getenv("RESUME_PROCESSING_MAX_RETRIES", "3"))
 
+    # OCR settings — used when a PDF has no text layer (scanned / image-only)
+    ocr_max_pages: int = int(os.getenv("OCR_MAX_PAGES", "5"))         # cap OCR cost/time on large scanned docs
+    ocr_timeout_seconds: int = int(os.getenv("OCR_TIMEOUT_SECONDS", "60"))  # per-page OCR timeout in seconds
+
 # Build redis_url after Settings is instantiated.
 # Must be done at module level (not inside __init__) so that load_dotenv()
 # has already been called and os.getenv() returns the real values.
