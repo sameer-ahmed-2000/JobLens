@@ -28,6 +28,10 @@ class RawPosting(BaseModel):
     url: Optional[str] = None
     source: Optional[str] = None
     last_seen_at: Optional[str] = None
+    # Persisted pgvector embedding from embedding_worker — passed through the
+    # pipeline so embed_node can skip recomputation for already-embedded postings.
+    # Excluded from serialization so it never surfaces in API responses.
+    embedding: Optional[List[float]] = Field(default=None, exclude=True)
 
 class ScoredPosting(BaseModel):
     id: Optional[str] = None

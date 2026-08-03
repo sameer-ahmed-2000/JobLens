@@ -135,5 +135,6 @@ class JobRepository:
             company=comp_name,
             description=job.description,
             url=job.url,
-            source=job.source
+            source=job.source,
+            embedding=list(job.embedding) if job.embedding is not None else None,
         )
