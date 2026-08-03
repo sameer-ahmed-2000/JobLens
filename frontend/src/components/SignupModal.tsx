@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { XIcon, SparklesIcon, CopyIcon, DownloadIcon, KeyIcon } from './icons';
-import { signupUser, uploadResume } from '../services/api';
+import { signupUser, signinUser, uploadResume } from '../services/api';
 import type { SignupData } from '../services/api';
 import type { UserProfile } from '../types';
 
@@ -23,6 +23,7 @@ export const SignupModal: React.FC<SignupModalProps> = ({
   // Signup fields
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [inviteCode, setInviteCode] = useState('joblens-beta-2026');
   const [whatsapp, setWhatsapp] = useState('');
   const [title, setTitle] = useState('Software Engineer');
@@ -32,7 +33,8 @@ export const SignupModal: React.FC<SignupModalProps> = ({
   const [dragOver, setDragOver] = useState(false);
 
   // Signin fields
-  const [pastedToken, setPastedToken] = useState('');
+  const [signinEmail, setSigninEmail] = useState('');
+  const [signinPassword, setSigninPassword] = useState('');
 
   // Status & Key Backup screen
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -50,7 +52,9 @@ export const SignupModal: React.FC<SignupModalProps> = ({
       setIssuedToken(null);
       setCreatedUser(null);
       setResumeFile(null);
-      setPastedToken('');
+      setSigninEmail('');
+      setSigninPassword('');
+      setPassword('');
     }
   }, [isOpen, initialTab]);
 
@@ -66,6 +70,11 @@ export const SignupModal: React.FC<SignupModalProps> = ({
       return;
     }
 
+    if (password.length < 8) {
+      setErrorMsg('Password must be at least 8 characters long.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     const skills = skillsText
@@ -76,6 +85,7 @@ export const SignupModal: React.FC<SignupModalProps> = ({
     const payload: SignupData = {
       name: name.trim(),
       email: email.trim(),
+      password: password,
       invite_code: inviteCode.trim(),
       whatsapp_number: whatsapp.trim() || undefined,
       title: title.trim(),
@@ -116,29 +126,24 @@ export const SignupModal: React.FC<SignupModalProps> = ({
     e.preventDefault();
     setErrorMsg('');
     
-    const trimmed = pastedToken.trim();
-    if (!trimmed) {
-      setErrorMsg('Please enter your API Access Key.');
+    if (!signinEmail.trim() || !signinPassword) {
+      setErrorMsg('Please enter both email and password.');
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const response = await axios.get<UserProfile>(`${API_URL}/api/profile`, {
-        headers: {
-          Authorization: `Bearer ${trimmed}`,
-        },
-      });
-
+      const res = await signinUser({ email: signinEmail.trim(), password: signinPassword });
+      
       // Token is valid! Store in sessionStorage and sign in.
-      sessionStorage.setItem('joblens_auth_token', trimmed);
-      onSuccess(trimmed, response.data);
+      sessionStorage.setItem('joblens_auth_token', res.raw_token);
+      onSuccess(res.raw_token, res.user);
       onClose();
     } catch (err: any) {
       console.error("Sign-in validation failed:", err);
-      setErrorMsg("Invalid or expired Access Key. Please verify your token and try again.");
+      const msg = err.response?.data?.detail || "Invalid email or password. Please try again.";
+      setErrorMsg(msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -307,7 +312,7 @@ from other browsers, devices, or after clearing browser data.
                     : 'text-gray-500 hover:text-gray-800'
                 }`}
               >
-                Sign In with Key
+                Sign In with Email
               </button>
             </div>
 
@@ -326,7 +331,7 @@ from other browsers, devices, or after clearing browser data.
                     value={inviteCode}
                     onChange={(e) => setInviteCode(e.target.value)}
                     placeholder="joblens-beta-2026"
-                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full bg-white border border-gray-200 text-black rounded-xl px-3 py-2 text-sm font-mono focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                   />
                 </div>
 
@@ -340,7 +345,7 @@ from other browsers, devices, or after clearing browser data.
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Alex Mercer"
-                      className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                      className="w-full bg-white border border-gray-200 text-black rounded-xl px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                     />
                   </div>
 
@@ -352,9 +357,23 @@ from other browsers, devices, or after clearing browser data.
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="alex@example.com"
-                      className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                      className="w-full bg-white border border-gray-200 text-black rounded-xl px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                     />
                   </div>
+                </div>
+
+                {/* Password Grid */}
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">Password <span className="text-red-500">*</span></label>
+                  <input
+                    type="password"
+                    required
+                    minLength={8}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Min 8 characters"
+                    className="w-full bg-white border border-gray-200 text-black rounded-xl px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                  />
                 </div>
 
                 {/* Target Role & Experience */}
@@ -366,7 +385,7 @@ from other browsers, devices, or after clearing browser data.
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
                       placeholder="e.g. AI Engineer, Full Stack Lead"
-                      className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                      className="w-full bg-white border border-gray-200 text-black rounded-xl px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                     />
                   </div>
 
@@ -378,7 +397,7 @@ from other browsers, devices, or after clearing browser data.
                       min="0"
                       value={yearsExperience}
                       onChange={(e) => setYearsExperience(parseFloat(e.target.value) || 0)}
-                      className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                      className="w-full bg-white border border-gray-200 text-black rounded-xl px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                     />
                   </div>
                 </div>
@@ -393,7 +412,7 @@ from other browsers, devices, or after clearing browser data.
                     value={skillsText}
                     onChange={(e) => setSkillsText(e.target.value)}
                     placeholder="Python, LangChain, React, PostgreSQL"
-                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full bg-white border border-gray-200 text-black rounded-xl px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                   />
                 </div>
 
@@ -464,7 +483,7 @@ from other browsers, devices, or after clearing browser data.
                     value={whatsapp}
                     onChange={(e) => setWhatsapp(e.target.value)}
                     placeholder="+1234567890"
-                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                    className="w-full bg-white border border-gray-200 text-black rounded-xl px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                   />
                 </div>
 
@@ -501,20 +520,33 @@ from other browsers, devices, or after clearing browser data.
                     <span>Existing User Sign In</span>
                   </div>
                   <p className="text-[11px] text-indigo-700 leading-relaxed">
-                    Paste your secret API Access Key (e.g. starting with <code className="font-mono bg-indigo-100 px-1 py-0.5 rounded">eyJ...</code>) to restore your session.
+                    Enter your email and password to securely log into your JobLens account.
                   </p>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">Your API Access Key</label>
-                  <textarea
-                    required
-                    rows={3}
-                    value={pastedToken}
-                    onChange={(e) => setPastedToken(e.target.value)}
-                    placeholder="Paste your Access Key here..."
-                    className="w-full bg-white border border-gray-200 rounded-xl p-3 text-xs font-mono focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none leading-relaxed"
-                  />
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">Email</label>
+                    <input
+                      type="email"
+                      required
+                      value={signinEmail}
+                      onChange={(e) => setSigninEmail(e.target.value)}
+                      placeholder="alex@example.com"
+                      className="w-full bg-white border border-gray-200 text-black rounded-xl p-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">Password</label>
+                    <input
+                      type="password"
+                      required
+                      value={signinPassword}
+                      onChange={(e) => setSigninPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-white border border-gray-200 text-black rounded-xl p-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                    />
+                  </div>
                 </div>
 
                 {errorMsg && (
@@ -536,7 +568,7 @@ from other browsers, devices, or after clearing browser data.
                     disabled={isSubmitting}
                     className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-sm hover:shadow transition-all cursor-pointer disabled:opacity-50"
                   >
-                    {isSubmitting ? 'Validating Key...' : 'Sign In'}
+                    {isSubmitting ? 'Signing In...' : 'Sign In'}
                   </button>
                 </div>
               </form>

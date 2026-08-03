@@ -136,7 +136,11 @@ const Dashboard: React.FC = () => {
         };
 
         eventSource.onerror = (err) => {
-          console.error("SSE connection error, EventSource will automatically attempt reconnection.", err);
+          console.error("SSE connection error, closing stale ticket connection and fetching a new one.", err);
+          eventSource?.close();
+          setTimeout(() => {
+            if (isActive) connectSSE();
+          }, 3000);
         };
       } catch (err) {
         console.error("Failed to initialize SSE connection ticket:", err);

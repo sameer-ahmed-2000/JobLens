@@ -117,6 +117,7 @@ export const updateProfile = async (profile: Partial<UserProfile>): Promise<User
 export interface SignupData {
   name: string;
   email: string;
+  password: string;
   invite_code: string;
   whatsapp_number?: string;
   title?: string;
@@ -127,6 +128,11 @@ export interface SignupData {
 
 export const signupUser = async (data: SignupData): Promise<{ user: UserProfile; raw_token: string }> => {
   const response = await apiClient.post<{ user: UserProfile; raw_token: string }>('/api/auth/signup', data);
+  return response.data;
+};
+
+export const signinUser = async (data: { email: string; password: string }): Promise<{ user: UserProfile; raw_token: string }> => {
+  const response = await apiClient.post<{ user: UserProfile; raw_token: string }>('/api/auth/signin', data);
   return response.data;
 };
 

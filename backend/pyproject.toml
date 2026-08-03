@@ -33,4 +33,5 @@ dependencies = [
     "python-docx",
     "filetype",
     "python-multipart",
+    "bcrypt",
 ]

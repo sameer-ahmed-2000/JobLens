@@ -34,6 +34,7 @@ class UserRepository:
         notify_threshold: float = 0.85,
         display_threshold: float = 0.70,
         token_hash: Optional[str] = None,
+        hashed_password: Optional[str] = None,
         quiet_hours_start: Optional[str] = None,
         quiet_hours_end: Optional[str] = None,
         timezone: Optional[str] = "Asia/Kolkata"
@@ -45,6 +46,7 @@ class UserRepository:
             notify_threshold=notify_threshold,
             display_threshold=display_threshold,
             token_hash=token_hash,
+            hashed_password=hashed_password,
             quiet_hours_start=quiet_hours_start,
             quiet_hours_end=quiet_hours_end,
             timezone=timezone
@@ -128,6 +130,7 @@ class UserRepository:
             "notify_threshold": user.notify_threshold,
             "display_threshold": user.display_threshold,
             "token_hash": user.token_hash,
+            "hashed_password": user.hashed_password,
             "quiet_hours_start": user.quiet_hours_start,
             "quiet_hours_end": user.quiet_hours_end,
             "timezone": user.timezone,

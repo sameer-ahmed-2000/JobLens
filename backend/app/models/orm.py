@@ -62,6 +62,7 @@ class UserORM(Base):
     notify_threshold = Column(Float, default=0.85, nullable=False)
     display_threshold = Column(Float, default=0.7, nullable=False)
     token_hash = Column(String, unique=True, index=True, nullable=True)
+    hashed_password = Column(String, nullable=True)
     quiet_hours_start = Column(String, nullable=True)
     quiet_hours_end = Column(String, nullable=True)
     timezone = Column(String, nullable=True, default="Asia/Kolkata")

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional, Dict, Any
 
 # Shared / Common
@@ -107,12 +107,31 @@ class NotificationItemSchema(BaseModel):
 class SignupRequest(BaseModel):
     name: str
     email: str
+    password: str = Field(..., min_length=8)
     invite_code: str
     whatsapp_number: Optional[str] = None
     title: Optional[str] = "Software Engineer"
     years_experience: Optional[float] = 0.0
     skills: Optional[List[str]] = []
     projects: Optional[List[Dict[str, Any]]] = []
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_byte_length(cls, v: str) -> str:
+        if len(v.encode("utf-8")) > 72:
+            raise ValueError("Password is too long (exceeds 72 bytes)")
+        return v
+
+class SigninRequest(BaseModel):
+    email: str
+    password: str = Field(..., min_length=8)
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_byte_length(cls, v: str) -> str:
+        if len(v.encode("utf-8")) > 72:
+            raise ValueError("Password is too long (exceeds 72 bytes)")
+        return v
 
 class SignupResponse(BaseModel):
     user: UserProfileSchema

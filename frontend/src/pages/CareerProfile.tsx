@@ -94,8 +94,18 @@ export const CareerProfile: React.FC = () => {
             console.error("Failed to parse SSE payload", err);
           }
         };
+        eventSource.onerror = (err) => {
+          console.error("SSE connection error in Profile, requesting new ticket...", err);
+          eventSource?.close();
+          setTimeout(() => {
+            if (isActive) setupSSE();
+          }, 3000);
+        };
       } catch (err) {
         console.error("SSE Connection Ticket failure in Profile", err);
+        setTimeout(() => {
+          if (isActive) setupSSE();
+        }, 5000);
       }
     };
 
