@@ -87,15 +87,19 @@ class OpenAICompatibleBackend:
         self.api_key = api_key
         self.model = model
         self.provider_name = provider_name
+        self._client = None
 
     def _get_client(self):
-        try:
-            from openai import OpenAI
-            return OpenAI(base_url=self.base_url, api_key=self.api_key)
-        except ImportError:
-            raise RuntimeError(
-                "openai package not installed. Run: pip install openai"
-            )
+        if self._client is None:
+            try:
+                from openai import OpenAI
+                self._client = OpenAI(base_url=self.base_url, api_key=self.api_key)
+            except ImportError:
+                raise RuntimeError(
+                    "openai package not installed. Run: pip install openai"
+                )
+        return self._client
+
 
     def generate(self, prompt: str, system_prompt: str = "", timeout: float = 30.0) -> str:
         try:

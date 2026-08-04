@@ -25,6 +25,8 @@ const Dashboard: React.FC = () => {
   const [isRefetching, setIsRefetching] = useState(false);
   const [refetchMessage, setRefetchMessage] = useState<string | null>(null);
   const [resumeMessage, setResumeMessage] = useState<string | null>(null);
+  const [mobileTab, setMobileTab] = useState<'matches' | 'report'>('matches');
+
 
 
   // SSE connection setup with ticket-based auth & gap backfilling
@@ -213,10 +215,11 @@ const Dashboard: React.FC = () => {
               if (matchIdentifier) {
                 fetchMatchDetailMutation.mutate(matchIdentifier);
               }
-              const targetIdentifier = loadedMatch.posting.url || loadedMatch.posting.id;
+              const targetIdentifier = loadedMatch.posting.id || loadedMatch.posting.url;
               if (targetIdentifier) {
                 generateReportMutation.mutate({ posting_url: targetIdentifier });
               }
+
             })
             .catch((err) => {
               console.error("Failed to load match detail from deep-link:", err);
@@ -231,10 +234,11 @@ const Dashboard: React.FC = () => {
         fetchMatchDetailMutation.mutate(matchIdentifier);
       }
 
-      const targetIdentifier = targetJob.posting.url || targetJob.posting.id;
+      const targetIdentifier = targetJob.posting.id || targetJob.posting.url;
       if (targetIdentifier) {
         generateReportMutation.mutate({ posting_url: targetIdentifier });
       }
+
     }
     // oxlint-disable-next-line react-hooks/exhaustive-deps
   }, [postings, searchParams]);
@@ -251,11 +255,16 @@ const Dashboard: React.FC = () => {
       fetchMatchDetailMutation.mutate(matchIdentifier);
     }
 
-    const targetIdentifier = posting.posting.url || posting.posting.id;
+    const targetIdentifier = posting.posting.id || posting.posting.url;
+
     if (targetIdentifier) {
       generateReportMutation.mutate({ posting_url: targetIdentifier });
     }
+
+    // On mobile devices (<1024px), automatically switch to the Gap Report view
+    setMobileTab('report');
   };
+
 
   // Derive unique sources from postings for Filter dropdown
   const availableSources = useMemo(() => {
@@ -370,11 +379,40 @@ const Dashboard: React.FC = () => {
       )}
 
 
-      {/* Two-Column Layout (Refinement #12: Jobs ↓ Gap Report on mobile) */}
+      {/* Mobile Navigation View Bar (< 1024px) */}
+      <div className="flex lg:hidden items-center bg-surface p-1 rounded-xl border border-gray-850 shadow-sm font-mono text-xs font-bold">
+        <button
+          type="button"
+          onClick={() => setMobileTab('matches')}
+          className={`flex-1 py-2 rounded-lg text-center transition-all cursor-pointer ${
+            mobileTab === 'matches'
+              ? 'bg-base text-focus-confirm border border-gray-800 shadow-xs'
+              : 'text-gray-400 hover:text-text-warm'
+          }`}
+        >
+          JOB MATCHES ({filteredPostings.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab('report')}
+          className={`flex-1 py-2 rounded-lg text-center transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+            mobileTab === 'report'
+              ? 'bg-base text-focus-confirm border border-gray-800 shadow-xs'
+              : 'text-gray-400 hover:text-text-warm'
+          }`}
+        >
+          <span>AI GAP REPORT</span>
+          {generateReportMutation.isPending && (
+            <span className="w-2 h-2 rounded-full bg-focus-confirm animate-ping" />
+          )}
+        </button>
+      </div>
+
+      {/* Two-Column Layout (Desktop side-by-side, Mobile Tabbed) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
         {/* Left Panel: Ranked Job List (5 cols on Desktop) */}
-        <div className="lg:col-span-5">
+        <div className={`lg:col-span-5 ${mobileTab === 'matches' ? 'block' : 'hidden lg:block'}`}>
           <div className="bg-surface p-4 rounded-2xl border border-gray-850 shadow-md">
             <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-850">
               <h2 className="text-base font-bold text-text-warm font-display flex items-center gap-2">
@@ -403,7 +441,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Right Panel: Gap Report (7 cols on Desktop) */}
-        <div className="lg:col-span-7 sticky top-24">
+        <div className={`lg:col-span-7 lg:sticky lg:top-24 ${mobileTab === 'report' ? 'block' : 'hidden lg:block'}`}>
           <GapReport
             report={generateReportMutation.data}
             isLoading={generateReportMutation.isPending}
@@ -412,7 +450,7 @@ const Dashboard: React.FC = () => {
             selectedPosting={selectedPosting}
             onRetry={() => {
               if (selectedPosting) {
-                const targetId = selectedPosting.posting.url || selectedPosting.posting.id;
+                const targetId = selectedPosting.posting.id || selectedPosting.posting.url;
                 if (targetId) {
                   generateReportMutation.mutate({ posting_url: targetId });
                 }
@@ -422,6 +460,7 @@ const Dashboard: React.FC = () => {
         </div>
 
       </div>
+
 
     </div>
   );

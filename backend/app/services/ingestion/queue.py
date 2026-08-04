@@ -101,11 +101,13 @@ class InMemoryEmbeddingQueue(IEmbeddingQueue):
 
 class RedisStreamEmbeddingQueue(IEmbeddingQueue):
     def __init__(self, redis_url: str = settings.redis_url):
-        self.client = redis.Redis.from_url(redis_url, decode_responses=True)
+        from app.redis_client import get_redis_client
+        self.client = get_redis_client()
         # Force ping to ensure connection works; raises ConnectionError if down
         self.client.ping()
 
         self.stream_key = "jobs:embedding:stream"
+
         self.group_name = "embedding_workers"
         self.dlq_key = "jobs:embedding:dlq"
         self.retry_hash_key = "jobs:embedding:retries"

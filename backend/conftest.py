@@ -18,6 +18,12 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
+def set_test_environment(monkeypatch):
+    """Ensure test suite uses in-memory SQLite database and test environment settings."""
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+    monkeypatch.setenv("ENVIRONMENT", "development")
+
+@pytest.fixture(autouse=True)
 def clear_llm_router_cache():
     """
     Clear the get_llm_router lru_cache before every test.
@@ -31,3 +37,4 @@ def clear_llm_router_cache():
     llm_router_factory.get_llm_router.cache_clear()
     yield
     llm_router_factory.get_llm_router.cache_clear()
+

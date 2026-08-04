@@ -130,8 +130,10 @@ def process_resume_file(resume_file_id: str, user_id: str) -> None:
 def _publish_sse_event(user_id: str, payload: dict) -> None:
     """Publishes progress events to Redis PubSub."""
     try:
-        client = redis.Redis.from_url(settings.redis_url, decode_responses=True)
+        from app.redis_client import get_redis_client
+        client = get_redis_client()
         client.publish(f"job_events:{user_id}", json.dumps(payload))
         logger.info(f"Published resume SSE event to channel job_events:{user_id}")
     except Exception as e:
         logger.warning(f"Could not publish resume status SSE for {user_id}: {e}")
+

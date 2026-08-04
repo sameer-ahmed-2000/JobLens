@@ -47,12 +47,12 @@ services:
       retries: 3
       start_period: 20s
 
-  notifier:
+  worker:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: joblens-notifier
-    command: python -m app.notifier
+    container_name: joblens-worker
+    command: python -m app.workers.run_workers
     env_file:
       - ./backend/.env
     environment:
@@ -60,6 +60,7 @@ services:
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - RUN_WORKERS_IN_PROCESS=false
     depends_on:
       redis:
         condition: service_healthy

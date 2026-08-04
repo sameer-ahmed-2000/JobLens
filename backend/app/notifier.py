@@ -67,13 +67,15 @@ class Notifier:
 
     def connect_redis(self):
         try:
-            self.redis_client = redis.Redis.from_url(settings.redis_url, decode_responses=True)
+            from app.redis_client import get_redis_client
+            self.redis_client = get_redis_client()
             self.redis_client.ping()
             logger.info(f"Notifier connected to Redis at {settings.redis_url}")
             return True
         except Exception as e:
             logger.error(f"Notifier failed to connect to Redis at {settings.redis_url}: {e}")
             return False
+
 
     def handle_message_async(self, message):
         """Concurrently handles a pubsub message."""

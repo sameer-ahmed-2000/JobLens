@@ -17,7 +17,8 @@ def test_redis_queue_operations():
     mock_client.xgroup_create.return_value = True
     mock_client.xlen.return_value = 5
     
-    with patch("redis.Redis.from_url", return_value=mock_client):
+    with patch("app.redis_client.get_redis_client", return_value=mock_client):
+
         # Initialize
         queue = RedisStreamEmbeddingQueue(redis_url="redis://dummy:6379/0")
         
@@ -72,7 +73,8 @@ def test_worker_watchdog_and_retry_exclusions():
     mock_client = MagicMock()
     mock_client.xgroup_create.return_value = True
     
-    with patch("redis.Redis.from_url", return_value=mock_client):
+    with patch("app.redis_client.get_redis_client", return_value=mock_client):
+
         queue = RedisStreamEmbeddingQueue(redis_url="redis://dummy:6379/0")
         
         # Initialize worker

@@ -44,7 +44,10 @@ def get_password_hash(password: str) -> str:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     try:
-        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+        pw_bytes = plain_password.encode('utf-8')
+        if len(pw_bytes) > 72:
+            return False
+        return bcrypt.checkpw(pw_bytes, hashed_password.encode('utf-8'))
     except Exception:
         return False
 
@@ -66,8 +69,8 @@ def create_jwt_token(user_id: str, email: str) -> str:
 def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
     """
     HTTPBearer dependency resolving the client token to a user ID.
-    First attempts stateless verification via JWT decoding. If that fails,
-    falls back to the legacy SHA-256 hash database token lookup.
+    First attempts stateless verification via JWT decoding.
+    Expired JWTs are rejected immediately. Legacy non-JWT tokens fall back to DB lookup.
     """
     token = credentials.credentials
     if not token:
@@ -85,6 +88,12 @@ def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(secu
                 user = uow.users.get_by_id(user_id)
                 if user:
                     return user_id
+    except jwt.ExpiredSignatureError:
+        logger.info("Authentication attempt with expired JWT token.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired."
+        )
     except jwt.PyJWTError as e:
         logger.debug(f"JWT verification failed, falling back to legacy token validation: {e}")
 
@@ -96,11 +105,13 @@ def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(secu
         if user:
             return user["id"]
 
-    logger.warning(f"Failed authentication attempt with token/hash: {token_hash}")
+    masked_hash = f"{token_hash[:8]}..." if token_hash else "None"
+    logger.warning(f"Failed authentication attempt with token/hash prefix: {masked_hash}")
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid authentication token."
     )
+
 
 
 @router.post("/signup", response_model=SignupResponse)

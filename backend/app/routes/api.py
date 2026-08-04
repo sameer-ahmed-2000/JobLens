@@ -32,13 +32,14 @@ router = APIRouter()
 async def get_postings(
     min_score: Optional[float] = None,
     limit: Optional[int] = None,
+    offset: Optional[int] = None,
     current_user_id: str = Depends(get_current_user_id)
 ):
     """
     Returns a list of job postings, scored and ranked against the user's resume.
     """
     return await discovery_service.get_ranked_postings(
-        user_id=current_user_id, force_refresh=False, min_score=min_score, limit=limit
+        user_id=current_user_id, force_refresh=False, min_score=min_score, limit=limit, offset=offset
     )
 
 
@@ -72,11 +73,13 @@ async def refetch_jobs(
 
     def _publish_refetch_status(user_id: str, status_val: str, stats: dict = None):
         try:
-            client = redis.Redis.from_url(settings.redis_url, decode_responses=True)
+            from app.redis_client import get_redis_client
+            client = get_redis_client()
             payload = {"type": "refetch_status", "status": status_val, "stats": stats or {}}
             client.publish(f"job_events:{user_id}", json.dumps(payload))
         except Exception as e:
             logger.warning(f"Could not publish refetch status for {user_id}: {e}")
+
 
     background_tasks.add_task(_run_refetch, current_user_id)
     return {"status": "started", "message": "Refetching jobs in the background -- new matches will appear live."}
@@ -122,7 +125,7 @@ async def generate_gap_report(request: GapReportRequest, current_user_id: str = 
 
 
 @router.get("/profile", response_model=UserProfileSchema)
-async def get_profile(current_user_id: str = Depends(get_current_user_id)):
+def get_profile(current_user_id: str = Depends(get_current_user_id)):
     """Retrieve profile settings of the current user."""
     from app.repositories.uow import UnitOfWork
     with UnitOfWork() as uow:
@@ -133,7 +136,7 @@ async def get_profile(current_user_id: str = Depends(get_current_user_id)):
 
 
 @router.put("/profile", response_model=UserProfileSchema)
-async def update_profile(
+def update_profile(
     profile_data: UserProfileUpdateSchema,
     current_user_id: str = Depends(get_current_user_id)
 ):
@@ -192,7 +195,7 @@ async def update_profile(
 
 
 @router.get("/notifications", response_model=List[NotificationItemSchema])
-async def get_notification_history(current_user_id: str = Depends(get_current_user_id)):
+def get_notification_history(current_user_id: str = Depends(get_current_user_id)):
     """
     Retrieves in-app notification history for the current user.
     """
@@ -233,7 +236,7 @@ class TokenRotateConfirm(BaseModel):
 
 
 @router.post("/profile/rotate-token")
-async def rotate_token(
+def rotate_token(
     body: TokenRotateConfirm,
     current_user_id: str = Depends(get_current_user_id),
 ):
@@ -265,4 +268,5 @@ async def rotate_token(
         "message": "Token rotated successfully. Store the new token securely -- it will not be shown again.",
         "new_token": raw_token,
     }
+
 

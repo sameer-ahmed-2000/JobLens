@@ -25,8 +25,8 @@ def create_limiter() -> Limiter:
     storage_uri = getattr(settings, "redis_url", None)
     if storage_uri:
         try:
-            import redis
-            client = redis.Redis.from_url(storage_uri, socket_timeout=1.0, socket_connect_timeout=1.0)
+            from app.redis_client import get_redis_client
+            client = get_redis_client()
             client.ping()
             logger.info(f"Rate limiter initialized with Redis storage at {storage_uri}")
             return Limiter(key_func=get_user_or_ip_key, storage_uri=storage_uri)
@@ -34,6 +34,7 @@ def create_limiter() -> Limiter:
             logger.warning(f"Redis unavailable for rate limiter storage ({e}). Falling back to memory:// storage.")
     
     return Limiter(key_func=get_user_or_ip_key, storage_uri="memory://")
+
 
 limiter = create_limiter()
 

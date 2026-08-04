@@ -18,7 +18,47 @@ from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
 from app.rate_limiter import limiter
 
-app = FastAPI(title="JobLens API", version="0.1.0")
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from app.config import validate_jwt_secret
+    validate_jwt_secret()
+
+    try:
+        from app.log_context import CorrelationIdFilter
+        root_logger = logging.getLogger()
+        from app.services.seeder import seed_if_empty
+        seed_if_empty()
+
+        if settings.run_workers_in_process:
+            from app.services.ingestion.embedding_worker import embedding_worker
+            from app.services.ingestion.scoring_worker import scoring_worker
+            from app.services.job_scheduler import job_scheduler
+            embedding_worker.start()
+            scoring_worker.start()
+            job_scheduler.start(run_immediately=True)
+            logger.info("Background workers started in-process (development mode).")
+        else:
+            logger.info("In-process background workers disabled (RUN_WORKERS_IN_PROCESS=false). Expecting external worker process.")
+    except Exception:
+        logger.exception("Startup initialization failed")
+        raise
+
+    yield
+
+    try:
+        if settings.run_workers_in_process:
+            from app.services.ingestion.embedding_worker import embedding_worker
+            from app.services.ingestion.scoring_worker import scoring_worker
+            from app.services.job_scheduler import job_scheduler
+            job_scheduler.stop()
+            scoring_worker.stop()
+            embedding_worker.stop()
+    except Exception:
+        logger.exception("Shutdown cleanup failed")
+
+app = FastAPI(title="JobLens API", version="0.1.0", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -37,9 +77,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-from app.services.seeder import seed_if_empty
-
 app.include_router(auth_router, prefix="/api")
 app.include_router(api_router, prefix="/api")
 app.include_router(resumes_router, prefix="/api")
@@ -50,51 +87,21 @@ app.include_router(applications_router, prefix="/api")
 app.include_router(dashboard_router, prefix="/api")
 
 
-
-
-@app.on_event("startup")
-async def startup_event():
-    from app.config import validate_jwt_secret
-    validate_jwt_secret()
-
-    try:
-        # Install CorrelationIdFilter on the root logger so every module's
-        # log records carry the current correlation_id field automatically.
-        from app.log_context import CorrelationIdFilter
-        root_logger = logging.getLogger()
-        root_logger.addFilter(CorrelationIdFilter())
-
-        seed_if_empty()
-        from app.services.ingestion.embedding_worker import embedding_worker
-        from app.services.ingestion.scoring_worker import scoring_worker
-        from app.services.job_scheduler import job_scheduler
-        embedding_worker.start()
-        scoring_worker.start()
-        job_scheduler.start(run_immediately=True)
-    except Exception:
-        logger.exception("Startup initialization failed")
-        raise
-
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    try:
-        from app.services.ingestion.embedding_worker import embedding_worker
-        from app.services.ingestion.scoring_worker import scoring_worker
-        from app.services.job_scheduler import job_scheduler
-        job_scheduler.stop()
-        scoring_worker.stop()
-        embedding_worker.stop()
-    except Exception:
-        logger.exception("Shutdown cleanup failed")
-
-
 @app.get("/health")
 def health_check():
     from app.services.ingestion.queue import embedding_queue
     from app.services.job_scheduler import job_scheduler
     from app.services.ingestion.scoring_worker import scoring_worker
+    from app.repositories.uow import UnitOfWork
+    from sqlalchemy import text
+
+    db_ok = False
+    try:
+        with UnitOfWork() as uow:
+            uow.session.execute(text("SELECT 1"))
+            db_ok = True
+    except Exception as e:
+        logger.error(f"Database health ping failed: {e}")
 
     redis_ok = False
     try:
@@ -118,7 +125,8 @@ def health_check():
     }
 
     return {
-        "status": "ok",
+        "status": "ok" if db_ok else "degraded",
+        "database_connected": db_ok,
         "queue_backend": embedding_queue.queue_backend,
         "redis_connected": redis_ok,
         "scheduler_last_run": (
@@ -131,3 +139,4 @@ def health_check():
         ),
         "llm_providers": llm_status,
     }
+

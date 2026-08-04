@@ -65,6 +65,7 @@ async def stream_jobs(ticket: str = Query(..., description="Short-lived one-time
             stored_user_id, expiry = _fallback_tickets.pop(ticket)
             if time.time() <= expiry:
                 user_id = stored_user_id
+                logger.warning("SSE stream authenticated using fallback in-memory ticket (Redis unreachable or disabled).")
 
     if not user_id:
         raise HTTPException(
@@ -73,7 +74,8 @@ async def stream_jobs(ticket: str = Query(..., description="Short-lived one-time
         )
 
     async def event_gen():
-        client = aioredis.from_url(settings.redis_url, decode_responses=True)
+        from app.redis_client import get_async_redis_client
+        client = get_async_redis_client()
         pubsub = client.pubsub()
         await pubsub.subscribe(f"job_events:{user_id}")
         try:
@@ -87,7 +89,7 @@ async def stream_jobs(ticket: str = Query(..., description="Short-lived one-time
             logger.error(f"SSE stream error: {e}")
         finally:
             await pubsub.unsubscribe()
-            await client.close()
+
 
     return StreamingResponse(
         event_gen(),

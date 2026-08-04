@@ -13,7 +13,8 @@ logger = logging.getLogger("discovery_service")
 class DiscoveryService:
     async def get_ranked_postings(
         self, user_id: str = "default-user-id", force_refresh: bool = False,
-        min_score: Optional[float] = None, limit: Optional[int] = None
+        min_score: Optional[float] = None, limit: Optional[int] = None,
+        offset: Optional[int] = None
     ) -> List[ScoredPosting]:
         """
         Execute the LangGraph Discovery workflow and return ranked job postings.
@@ -26,7 +27,9 @@ class DiscoveryService:
         if not force_refresh:
             try:
                 with UnitOfWork() as uow:
-                    existing_matches = uow.job_matches.get_matches_for_user(user_id, min_score=min_score, limit=limit)
+                    existing_matches = uow.job_matches.get_matches_for_user(
+                        user_id, min_score=min_score, limit=limit, offset=offset
+                    )
                 if existing_matches:
                     logger.info(f"Found {len(existing_matches)} cached job matches for user {user_id}")
                     return [ScoredPosting(**m) for m in existing_matches]
@@ -60,10 +63,13 @@ class DiscoveryService:
         # 4. Query them back from the DB to ensure we get definitive ordering and database-driven statuses
         try:
             with UnitOfWork() as uow:
-                matches = uow.job_matches.get_matches_for_user(user_id, min_score=min_score, limit=limit)
+                matches = uow.job_matches.get_matches_for_user(
+                    user_id, min_score=min_score, limit=limit, offset=offset
+                )
             elapsed = time.perf_counter() - t0
             logger.info(f"Discovery completed for user {user_id} in {elapsed:.2f} s")
             return [ScoredPosting(**m) for m in matches]
+
         except Exception as e:
             logger.error(f"Failed to fetch matches back from DB: {e}. Returning in-memory results.", exc_info=True)
             return scored

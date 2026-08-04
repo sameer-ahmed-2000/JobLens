@@ -139,20 +139,24 @@ class ScoringService:
             job_url = job.url
             job_source = job.source or "Live"
 
+            # Execute dialect-aware vector scoring (PostgreSQL <=> SQL query vs SQLite in-memory)
+            user_scores = uow.job_matches.score_job_against_active_resumes(
+                job_id=job_id,
+                job_embedding=job_embedding,
+                fallback_resumes_cache=active_resumes
+            )
+
         # --- Per-user isolation ---
         # Each user gets its own UnitOfWork so a failure for one user (bad
         # embedding, DB constraint) doesn't roll back results for all others.
         # commit() is called BEFORE _publish_match_event() to guarantee the
         # match is persisted before any notification is dispatched.
         scored_count = 0
-        for user_id, user_data in active_resumes.items():
+        for item in user_scores:
+            user_id = item["user_id"]
+            score = item["score"]
+            display_threshold = item["display_threshold"]
             try:
-                resume_embedding = user_data["embedding"]
-                display_threshold = user_data["display_threshold"]
-
-                sim = cosine_similarity(job_embedding, resume_embedding)
-                score = round(sim, 4)
-
                 with UnitOfWork() as user_uow:
                     match_res = user_uow.job_matches.upsert(
                         user_id=user_id, job_id=job_id, score=score
@@ -180,9 +184,10 @@ class ScoringService:
                 )
 
         logger.info(
-            f"ScoringService: Scored {scored_count}/{len(active_resumes)} users "
+            f"ScoringService: Scored {scored_count}/{len(user_scores)} users "
             f"for job '{job_title}' ({job_id})."
         )
+
 
     def _publish_match_event(
         self,

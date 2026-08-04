@@ -100,16 +100,6 @@ def run_ingestion_pipeline(
     total_failures = 0
     sources_processed = 0
 
-    with UnitOfWork() as uow:
-        # Pre-populate seen sets with existing DB jobs to prevent duplicates across runs
-        existing_jobs = uow.jobs.get_all_postings()
-        for ej in existing_jobs:
-            if ej.url:
-                seen_urls.add(ej.url)
-            if ej.id:
-                seen_ids.add(ej.id)
-            seen_titles_companies.add((normalize_text(ej.company), normalize_text(ej.title)))
-
     for src in sources:
         source_type = src["source_type"].lower()
 
@@ -145,7 +135,6 @@ def run_ingestion_pipeline(
                     logger.info(f"Skipping source '{src['name']}': fetched {elapsed_min:.1f}m ago (cadence {poll_interval}m).")
                     continue
 
-
         connector = connectors_map.get(source_type)
         if not connector:
             logger.warning(f"No connector implemented for source type '{source_type}'. Skipping.")
@@ -162,6 +151,17 @@ def run_ingestion_pipeline(
         if source_type in AGGREGATOR_TYPES:
             fetch_config = {**src, "keywords": keywords, "location": location}
         res: ConnectorResultV1 = connector.fetch(fetch_config)
+
+        # Scoped DB lookup for incoming raw URLs/IDs to avoid full table scan
+        raw_urls = [str(raw.get("url")) for raw in res.raw_items if isinstance(raw, dict) and raw.get("url") is not None]
+        raw_ids = [str(raw.get("id")) for raw in res.raw_items if isinstance(raw, dict) and raw.get("id") is not None]
+        with UnitOfWork() as uow:
+            if raw_urls:
+                seen_urls.update(uow.jobs.get_existing_urls(raw_urls))
+            if raw_ids:
+                seen_ids.update(uow.jobs.get_existing_ids(raw_ids))
+
+
 
         inserted = 0
         updated = 0

@@ -119,6 +119,13 @@ class Settings(BaseModel):
     # Tune based on observed Adzuna/Jooble quota consumption once live.
     jobs_per_user_rotation_batch_size: int = int(os.getenv("JOBS_PER_USER_ROTATION_BATCH_SIZE", "3"))
 
+    # Worker process execution flag
+    # True in development to allow single-process runs; False in production (workers run in standalone process)
+    run_workers_in_process: bool = os.getenv(
+        "RUN_WORKERS_IN_PROCESS",
+        "true" if os.getenv("ENVIRONMENT", "development").lower() == "development" else "false"
+    ).lower() == "true"
+
 # Build redis_url after Settings is instantiated.
 # Must be done at module level (not inside __init__) so that load_dotenv()
 # has already been called and os.getenv() returns the real values.
@@ -162,4 +169,11 @@ def validate_jwt_secret(settings_obj=None):
             "SECURITY WARNING: JWT_SECRET_KEY is set to default insecure key ('super-secret-key-change-me'). "
             "Set a strong JWT_SECRET_KEY before deploying to production!"
         )
+    elif len(secret) < 32:
+        import logging
+        logging.getLogger("app.config").warning(
+            f"SECURITY WARNING: JWT_SECRET_KEY is only {len(secret)} characters long. "
+            "A minimum of 32 random characters is recommended for production!"
+        )
+
 

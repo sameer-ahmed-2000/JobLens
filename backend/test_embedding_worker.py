@@ -51,10 +51,12 @@ def test_embedding_worker_processing():
     worker = EmbeddingWorker(queue=embedding_queue)
 
     with patch("app.services.ingestion.embedding_worker.UnitOfWork", TestUnitOfWork), \
+         patch("app.services.ingestion.scoring_worker.scoring_worker.enqueue"), \
          patch("app.services.embeddings.SentenceTransformerEmbeddingService.embed_job") as mock_embed:
         mock_embed.return_value = [0.1] * 384
         
         processed = worker.process_once(max_batch=5)
+
         assert processed == 1
         if embedding_queue.queue_backend == "redis":
             pending_info = embedding_queue.client.xpending(embedding_queue.stream_key, embedding_queue.group_name)

@@ -13,7 +13,7 @@ router = APIRouter()
 
 
 @router.get("/matches", response_model=List[ScoredPosting])
-async def get_matches(
+def get_matches(
     since: Optional[str] = Query(None, description="ISO 8601 datetime string filter"),
     current_user_id: str = Depends(get_current_user_id)
 ):
@@ -73,7 +73,8 @@ async def get_matches(
 
 @router.get("/matches/{match_id}", response_model=ScoredPosting)
 @limiter.limit("10/minute")
-async def get_match_detail(request: Request, match_id: str, current_user_id: str = Depends(get_current_user_id)):
+def get_match_detail(request: Request, match_id: str, current_user_id: str = Depends(get_current_user_id)):
+
     """
     Get job match detail. If fit_rationale is missing/empty in the database,
     triggers lazy rationale generation via LLM and caches the result.

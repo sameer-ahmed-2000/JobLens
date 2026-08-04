@@ -16,21 +16,49 @@ class JobRepository:
             result.append(self._to_pydantic(j))
         return result
 
-    def get_by_id(self, job_id: str) -> Optional[RawPosting]:
-        job = self.session.query(JobORM).filter(JobORM.id == job_id).first()
+    def get_existing_urls(self, urls: List[Any]) -> set[str]:
+        if not urls:
+            return set()
+        str_urls = [str(u) for u in urls if u is not None]
+        if not str_urls:
+            return set()
+        rows = self.session.query(JobORM.url).filter(JobORM.url.in_(str_urls)).all()
+        return {r[0] for r in rows if r[0]}
+
+    def get_existing_ids(self, ids: List[Any]) -> set[str]:
+        if not ids:
+            return set()
+        str_ids = [str(i) for i in ids if i is not None]
+        if not str_ids:
+            return set()
+        rows = self.session.query(JobORM.id).filter(JobORM.id.in_(str_ids)).all()
+        return {r[0] for r in rows if r[0]}
+
+    def get_by_id(self, job_id: Any) -> Optional[RawPosting]:
+        if job_id is None:
+            return None
+        job = self.session.query(JobORM).filter(JobORM.id == str(job_id)).first()
         return self._to_pydantic(job) if job else None
 
-    def get_by_url(self, url: str) -> Optional[RawPosting]:
-        job = self.session.query(JobORM).filter(JobORM.url == url).first()
+    def get_by_url(self, url: Optional[str]) -> Optional[RawPosting]:
+        if not url:
+            return None
+        job = self.session.query(JobORM).filter(JobORM.url == str(url)).first()
         return self._to_pydantic(job) if job else None
 
-    def get_by_id_or_url(self, identifier: str) -> Optional[RawPosting]:
+    def get_by_id_or_url(self, identifier: Any) -> Optional[RawPosting]:
         if not identifier:
             return None
+        str_ident = str(identifier).strip()
         job = self.session.query(JobORM).filter(
-            (JobORM.id == identifier) | (JobORM.url == identifier)
+            (JobORM.id == str_ident) | (JobORM.url == str_ident)
         ).first()
+        if not job and str_ident.startswith("http"):
+            alt_ident = str_ident.rstrip("/") if str_ident.endswith("/") else str_ident + "/"
+            job = self.session.query(JobORM).filter(JobORM.url == alt_ident).first()
         return self._to_pydantic(job) if job else None
+
+
 
     def _resolve_company_id(self, company_name: Optional[str]) -> Optional[str]:
         if not company_name or not company_name.strip():
