@@ -5,19 +5,10 @@ from typing import Dict, Any, List, Set
 from app.models.schemas import SkillGap
 from app.nodes.normalize_skills import normalize_skill_name
 from app.nodes.normalize import get_tech_aliases
+from app.services.skill_matcher import SkillMatcher
 
 logger = logging.getLogger(__name__)
 
-# Define transferable technology clusters for deterministic partial matching
-TRANSFERABLE_CLUSTERS = [
-    {"python", "fastapi", "django", "flask", "node.js", "express", "backend", "api", "rest api"},
-    {"react", "vue.js", "angular", "next.js", "typescript", "javascript", "frontend", "web development"},
-    {"langgraph", "langchain", "llama index", "rag", "llm", "ai", "genai", "generative ai", "machine learning", "deep learning", "nlp", "pytorch", "tensorflow", "openai", "huggingface", "vector database", "faiss", "pinecone", "qdrant"},
-    {"aws", "gcp", "azure", "cloud", "cloud computing"},
-    {"docker", "kubernetes", "k8s", "containerization", "docker compose"},
-    {"kafka", "rabbitmq", "event streaming", "distributed systems", "pub/sub", "streaming"},
-    {"postgresql", "mysql", "mongodb", "sqlite", "redis", "dynamodb", "sql", "nosql", "database"}
-]
 
 def load_resume_data(file_path: str = None) -> Dict[str, Any]:
     if file_path is None:
@@ -32,12 +23,17 @@ def load_resume_data(file_path: str = None) -> Dict[str, Any]:
         return json.load(f)
 
 def compare_skills_node(state: Dict[str, Any]) -> Dict[str, Any]:
-    """LangGraph node to deterministically compare required skills against candidate resume."""
+    """
+    LangGraph node — deterministic comparison of required skills against the resume.
+
+    Delegates numeric matching to SkillMatcher, then converts the result into
+    the List[SkillGap] presentation format expected by gap analysis consumers.
+    Output contract is unchanged.
+    """
     logger.info("Executing compare_skills_node...")
     normalized_skills = state.get("normalized_skills", [])
     
     if not normalized_skills:
-        # If normalized_skills not set, try extracted_jd
         extracted_jd = state.get("extracted_jd")
         if extracted_jd and extracted_jd.required_skills:
             normalized_skills = extracted_jd.required_skills
@@ -61,7 +57,7 @@ def compare_skills_node(state: Dict[str, Any]) -> Dict[str, Any]:
         resume = load_resume_data()
     aliases = get_tech_aliases()
 
-    # Build candidate knowledge base
+    # Build candidate knowledge base (normalised)
     candidate_skills: Set[str] = set()
     for s in resume.get("skills", []):
         norm_s = normalize_skill_name(s, aliases).lower()
@@ -79,53 +75,38 @@ def compare_skills_node(state: Dict[str, Any]) -> Dict[str, Any]:
         if desc:
             project_descriptions.append(desc.lower())
 
-    direct_match_set = candidate_skills | project_techs
-    all_resume_text = (
+    resume_text = (
         resume.get("title", "") + " " +
         " ".join(resume.get("skills", [])) + " " +
         " ".join(project_descriptions) + " " +
         " ".join(project_techs)
     ).lower()
 
-    skill_gaps: List[SkillGap] = []
+    # Delegate numeric matching to SkillMatcher
+    matcher = SkillMatcher()
+    match_result = matcher.match(
+        required_skills=normalized_skills,
+        resume_skills=candidate_skills,
+        resume_project_techs=project_techs,
+        resume_text=resume_text,
+        aliases=aliases,
+    )
 
+    # Convert SkillMatchResult back into the List[SkillGap] presentation format
+    # (gap analysis consumers depend on this contract — do not change the output shape)
+    matched_set = set(s.lower() for s in match_result.matched_skills)
+    partial_set = set(s.lower() for s in match_result.partial_skills)
+
+    skill_gaps: List[SkillGap] = []
     for req_skill in normalized_skills:
         req_lower = req_skill.lower().strip()
-        classification = "missing"
-
-        # 1. Direct Match (have)
-        if req_lower in direct_match_set:
+        if req_lower in matched_set:
             classification = "have"
+        elif req_lower in partial_set:
+            classification = "partial"
         else:
-            # Check if any candidate skill or project tech equals or is contained in req_skill
-            for cand_s in direct_match_set:
-                if len(cand_s) >= 3 and (cand_s == req_lower or f" {cand_s} " in f" {req_lower} " or cand_s in req_lower.split()):
-                    classification = "have"
-                    break
-            if classification != "have":
-                for cand_s in direct_match_set:
-                    if len(req_lower) >= 3 and req_lower in cand_s:
-                        classification = "have"
-                        break
+            classification = "missing"
 
-        # 2. Partial Match (partial)
-        if classification != "have":
-            # Check transferable clusters
-            is_transferable = False
-            for cluster in TRANSFERABLE_CLUSTERS:
-                if any(c == req_lower or c in req_lower.split() for c in cluster):
-                    if any(c in direct_match_set for c in cluster):
-                        is_transferable = True
-                        break
-            if is_transferable:
-                classification = "partial"
-            else:
-                # Check significant word overlap in project descriptions or resume title
-                words = [w for w in req_lower.split() if len(w) >= 3 and w not in ("and", "the", "with", "using", "for", "from", "system", "systems", "development")]
-                if words and any(w in all_resume_text for w in words):
-                    classification = "partial"
-
-        # Construct SkillGap object
         gap = SkillGap(
             skill=req_skill,
             missing_skill=req_skill,
@@ -136,9 +117,8 @@ def compare_skills_node(state: Dict[str, Any]) -> Dict[str, Any]:
         )
         skill_gaps.append(gap)
 
-    have_count = sum(1 for g in skill_gaps if g.classification == "have")
-    partial_count = sum(1 for g in skill_gaps if g.classification == "partial")
-    missing_count = sum(1 for g in skill_gaps if g.classification == "missing")
-    logger.info(f"Comparison complete: {have_count} have, {partial_count} partial, {missing_count} missing.")
-
+    logger.info(
+        f"Comparison complete: {match_result.matched} have, "
+        f"{match_result.partial} partial, {len(match_result.missing_required)} missing."
+    )
     return {"skill_gaps": skill_gaps}

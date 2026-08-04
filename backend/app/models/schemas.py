@@ -38,6 +38,47 @@ class ScoredPosting(BaseModel):
     posting: RawPosting
     overall_score: float
     fit_rationale: str
+    # Sub-score breakdown — populated by hybrid scorer (Phase 2+).
+    # None when running the legacy semantic-only scorer (v1).
+    score_breakdown: Optional["ScoreBreakdown"] = None
+    # One-line LLM explanation — populated only when reranking is enabled (Phase 4).
+    rerank_explanation: Optional[str] = None
+    # Rerank metadata
+    reranked: bool = False
+    rerank_provider: Optional[str] = None
+    rerank_latency_ms: Optional[int] = None
+    rerank_fallback_used: Optional[bool] = None
+
+class RerankResult(BaseModel):
+    postings: List[ScoredPosting]
+    model: str
+    provider: str
+    latency_ms: int
+    fallback_used: bool
+
+
+class ScoreBreakdown(BaseModel):
+    """
+    Explainable sub-scores for a single job match.
+
+    Stored as JSON in job_matches.score_breakdown so weights can be analysed
+    and tuned from real data without recomputing scores.
+
+    Fields:
+        semantic:   cosine similarity between resume and job embeddings  ∈ [0, 1]
+        skill:      SkillMatcher.match().score                           ∈ [0, 1]
+        title:      title_matcher.title_similarity()                    ∈ [0, 1]
+        experience: SkillMatcher.experience_score()                     ∈ [0.1, 1]
+        penalty:    total required-skill penalty applied (missing * k)  ≥ 0
+        final:      weighted sum minus penalty, clamped to [0, 1]
+    """
+    semantic:   float
+    skill:      float
+    title:      float
+    experience: float
+    penalty:    float
+    final:      float
+
 
 # Gap Analysis
 class JDRequirements(BaseModel):

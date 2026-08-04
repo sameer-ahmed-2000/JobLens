@@ -11,7 +11,7 @@ Usage:
     router = get_llm_router("rationale")
     result = router.generate(prompt=...)
 
-Valid roles: "rationale", "gap_analysis", "resume_parsing", "notification"
+Valid roles: "rationale", "gap_analysis", "resume_parsing", "notification", "reranking"
 """
 from functools import lru_cache
 from app.services.llm_router import LLMRouter

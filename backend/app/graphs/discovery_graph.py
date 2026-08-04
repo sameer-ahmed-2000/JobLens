@@ -17,6 +17,8 @@ class DiscoveryState(TypedDict):
     posting_embeddings: List[Any]
     resume_embedding: Any
     scored_postings: List[ScoredPosting]
+    scoring_version: Optional[str]
+    user_id: Optional[str]
 
 def timed_node(func, label: str):
     """Wrap a LangGraph node to log exact execution time."""
@@ -39,13 +41,16 @@ def build_discovery_graph():
     builder.add_node("normalize", timed_node(normalize_node, "Normalize"))
     builder.add_node("embed", timed_node(embed_node, "Embedding"))
     builder.add_node("score", timed_node(score_node, "Scoring & Ranking"))
+    from app.nodes.rerank import rerank_node
+    builder.add_node("rerank", timed_node(rerank_node, "LLM Reranking"))
     builder.add_node("generate_rationale", timed_node(generate_rationale_node, "LLM Rationale"))
     
     builder.add_edge(START, "fetch")
     builder.add_edge("fetch", "normalize")
     builder.add_edge("normalize", "embed")
     builder.add_edge("embed", "score")
-    builder.add_edge("score", "generate_rationale")
+    builder.add_edge("score", "rerank")
+    builder.add_edge("rerank", "generate_rationale")
     builder.add_edge("generate_rationale", END)
     
     return builder.compile()

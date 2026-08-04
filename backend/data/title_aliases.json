@@ -1,0 +1,140 @@
+{
+  "version": "1.0",
+  "description": "Role equivalency groups for title similarity scoring. Each key is a canonical role slug; its list contains all titles considered equivalent. Edit this file to expand or refine mappings without touching code.",
+  "groups": {
+    "frontend_engineer": [
+      "frontend engineer",
+      "front-end engineer",
+      "front end engineer",
+      "react developer",
+      "react.js developer",
+      "reactjs developer",
+      "vue developer",
+      "vue.js developer",
+      "angular developer",
+      "ui engineer",
+      "ui developer",
+      "javascript developer",
+      "typescript developer",
+      "web developer",
+      "web application developer",
+      "next.js developer",
+      "nextjs developer"
+    ],
+    "backend_engineer": [
+      "backend engineer",
+      "back-end engineer",
+      "back end engineer",
+      "backend developer",
+      "server-side engineer",
+      "api developer",
+      "api engineer",
+      "python developer",
+      "java developer",
+      "node.js developer",
+      "nodejs developer",
+      "go developer",
+      "golang developer",
+      "ruby developer",
+      "ruby on rails developer",
+      "php developer"
+    ],
+    "fullstack_engineer": [
+      "full stack engineer",
+      "full-stack engineer",
+      "fullstack engineer",
+      "full stack developer",
+      "full-stack developer",
+      "fullstack developer",
+      "software engineer",
+      "software developer",
+      "application developer",
+      "application engineer"
+    ],
+    "ml_engineer": [
+      "machine learning engineer",
+      "ml engineer",
+      "ai engineer",
+      "artificial intelligence engineer",
+      "research engineer",
+      "research scientist",
+      "applied scientist",
+      "applied ml engineer",
+      "data scientist",
+      "nlp engineer",
+      "computer vision engineer",
+      "deep learning engineer"
+    ],
+    "data_engineer": [
+      "data engineer",
+      "etl developer",
+      "etl engineer",
+      "data pipeline engineer",
+      "analytics engineer",
+      "big data engineer",
+      "data infrastructure engineer",
+      "data platform engineer"
+    ],
+    "devops_engineer": [
+      "devops engineer",
+      "site reliability engineer",
+      "sre",
+      "platform engineer",
+      "infrastructure engineer",
+      "cloud engineer",
+      "cloud infrastructure engineer",
+      "systems engineer",
+      "release engineer",
+      "build engineer"
+    ],
+    "mobile_developer": [
+      "mobile developer",
+      "mobile engineer",
+      "ios developer",
+      "ios engineer",
+      "android developer",
+      "android engineer",
+      "react native developer",
+      "flutter developer",
+      "swift developer",
+      "kotlin developer",
+      "cross-platform developer"
+    ],
+    "qa_engineer": [
+      "qa engineer",
+      "quality assurance engineer",
+      "test engineer",
+      "sdet",
+      "software development engineer in test",
+      "automation engineer",
+      "automation test engineer",
+      "quality engineer",
+      "test automation engineer"
+    ],
+    "security_engineer": [
+      "security engineer",
+      "cybersecurity engineer",
+      "application security engineer",
+      "appsec engineer",
+      "penetration tester",
+      "security analyst",
+      "information security engineer"
+    ],
+    "data_analyst": [
+      "data analyst",
+      "business analyst",
+      "business intelligence analyst",
+      "bi analyst",
+      "bi developer",
+      "reporting analyst",
+      "insights analyst"
+    ]
+  },
+  "seniority_levels": {
+    "junior": ["junior", "associate", "entry level", "entry-level", "jr"],
+    "mid": ["mid", "mid-level", "mid level", "intermediate"],
+    "senior": ["senior", "sr", "sr."],
+    "lead": ["lead", "tech lead", "technical lead"],
+    "staff": ["staff", "principal", "architect"]
+  }
+}

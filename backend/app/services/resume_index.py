@@ -71,9 +71,28 @@ class ResumeIndex(IResumeIndex):
         projects_text = " ".join(project_descs)
 
         # 3. Experience / Target Role Text
+        # Derived from actual resume data — NOT hardcoded to any domain.
+        # Source of truth: raw_text (the full extracted resume text); falls back to
+        # skills + project descriptions when raw_text is absent (file-based fallback path).
         title = self.resume_data.get("title", "")
         years = self.resume_data.get("years_experience", 0)
-        experience_text = f"Target Role: {title}. Professional experience: {years} years in AI software engineering, LLM applications, and RAG systems."
+        experience_parts = [
+            f"Target Role: {title}.",
+            f"Professional experience: {years} years.",
+        ]
+        raw_text = self.resume_data.get("raw_text", "")
+        if raw_text:
+            # raw_text contains the full extracted resume — use first 500 chars as experience signal
+            experience_parts.append(raw_text[:500])
+        else:
+            # Fallback: synthesize from skills and project descriptions
+            skills_summary = ", ".join(skills[:10])
+            experience_parts.append(f"Skills include: {skills_summary}.")
+            for p in projects[:2]:
+                desc = p.get("description", "")[:200]
+                if desc:
+                    experience_parts.append(desc)
+        experience_text = " ".join(experience_parts)
 
         logger.info("Computing separate embeddings for skills, projects, and experience...")
         self.skill_embedding = embedding_service.embed_resume_section(skills_text)

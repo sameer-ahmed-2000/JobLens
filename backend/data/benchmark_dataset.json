@@ -1,0 +1,149 @@
+[
+  {
+    "resume_id": "res_react_senior",
+    "resume_title": "Senior React Developer",
+    "resume_text": "Target Role: Senior React Developer. Professional experience: 6 years. Specialized in frontend web development using React, Next.js, TypeScript, and Tailwind CSS. Built high-performance SPAs and complex state management using Redux.",
+    "resume_years": 6.0,
+    "resume_skills": ["React", "Next.js", "TypeScript", "JavaScript", "Tailwind CSS", "Redux", "HTML", "CSS"],
+    "jobs": [
+      {
+        "job_id": "job_react_1",
+        "title": "Senior Frontend Engineer",
+        "description": "Looking for a Senior Frontend Engineer with 5+ years of experience. Must be an expert in React, TypeScript, and modern frontend architecture. Next.js experience is a huge plus.",
+        "required_skills": ["React", "TypeScript"],
+        "required_years": 5.0,
+        "label": 1.0
+      },
+      {
+        "job_id": "job_react_2",
+        "title": "Fullstack Developer (Node/React)",
+        "description": "Fullstack developer needed to build modern web apps. Requires React on the frontend and Node.js on the backend. 3+ years experience.",
+        "required_skills": ["React", "Node.js", "JavaScript"],
+        "required_years": 3.0,
+        "label": 0.8
+      },
+      {
+        "job_id": "job_react_3",
+        "title": "Frontend Vue Developer",
+        "description": "Seeking a frontend developer proficient in Vue.js and Tailwind. React experience is nice to have but Vue is mandatory.",
+        "required_skills": ["Vue.js", "Tailwind CSS"],
+        "required_years": 2.0,
+        "label": 0.5
+      },
+      {
+        "job_id": "job_react_4",
+        "title": "UI/UX Designer",
+        "description": "Looking for a designer to create wireframes in Figma. HTML/CSS knowledge is helpful.",
+        "required_skills": ["Figma", "UI Design", "CSS"],
+        "required_years": 2.0,
+        "label": 0.2
+      },
+      {
+        "job_id": "job_react_5",
+        "title": "Backend Java Engineer",
+        "description": "Enterprise Java developer for scalable microservices. Spring Boot and PostgreSQL required.",
+        "required_skills": ["Java", "Spring Boot", "PostgreSQL"],
+        "required_years": 4.0,
+        "label": 0.0
+      }
+    ]
+  },
+  {
+    "resume_id": "res_ml_engineer",
+    "resume_title": "Machine Learning Engineer",
+    "resume_text": "Target Role: ML Engineer. Professional experience: 4 years. Specialized in training and deploying deep learning models. Strong python, PyTorch, and NLP background. Familiar with LLMs, HuggingFace, and vector databases.",
+    "resume_years": 4.0,
+    "resume_skills": ["Python", "PyTorch", "NLP", "Machine Learning", "LLMs", "HuggingFace", "Vector Database"],
+    "jobs": [
+      {
+        "job_id": "job_ml_1",
+        "title": "AI Engineer (NLP/LLMs)",
+        "description": "Looking for an AI engineer to build RAG systems. Deep knowledge of NLP, PyTorch, and vector databases required. 3+ years experience.",
+        "required_skills": ["PyTorch", "NLP", "Vector Database", "Python"],
+        "required_years": 3.0,
+        "label": 1.0
+      },
+      {
+        "job_id": "job_ml_2",
+        "title": "Data Scientist",
+        "description": "Data Scientist needed for predictive modeling. Requires Python, scikit-learn, SQL, and general machine learning knowledge.",
+        "required_skills": ["Python", "Machine Learning", "SQL"],
+        "required_years": 2.0,
+        "label": 0.8
+      },
+      {
+        "job_id": "job_ml_3",
+        "title": "Backend Python Developer",
+        "description": "Backend developer to build APIs in FastAPI. Python required. Data science background is a plus but primarily an API engineering role.",
+        "required_skills": ["Python", "FastAPI", "API"],
+        "required_years": 3.0,
+        "label": 0.5
+      },
+      {
+        "job_id": "job_ml_4",
+        "title": "DevOps Engineer",
+        "description": "Kubernetes, Docker, and AWS expert. Python scripting is needed for automation.",
+        "required_skills": ["Kubernetes", "AWS", "Python", "Docker"],
+        "required_years": 4.0,
+        "label": 0.2
+      },
+      {
+        "job_id": "job_ml_5",
+        "title": "Frontend React Developer",
+        "description": "Building UI for AI applications. React and TypeScript required.",
+        "required_skills": ["React", "TypeScript"],
+        "required_years": 2.0,
+        "label": 0.0
+      }
+    ]
+  },
+  {
+    "resume_id": "res_devops_mid",
+    "resume_title": "Mid-Level DevOps Engineer",
+    "resume_text": "Target Role: DevOps / SRE. Professional experience: 3 years. Focus on cloud infrastructure, CI/CD, and container orchestration. Skills include AWS, Kubernetes, Terraform, Docker, and Bash scripting.",
+    "resume_years": 3.0,
+    "resume_skills": ["AWS", "Kubernetes", "Terraform", "Docker", "Bash", "CI/CD"],
+    "jobs": [
+      {
+        "job_id": "job_devops_1",
+        "title": "Cloud Infrastructure Engineer",
+        "description": "Build and maintain AWS infrastructure using Terraform. Kubernetes experience is a must. 3 years experience.",
+        "required_skills": ["AWS", "Terraform", "Kubernetes"],
+        "required_years": 3.0,
+        "label": 1.0
+      },
+      {
+        "job_id": "job_devops_2",
+        "title": "Senior SRE",
+        "description": "Senior SRE for large scale distributed systems. Kubernetes, AWS, and Golang required. Minimum 7 years experience.",
+        "required_skills": ["Kubernetes", "AWS", "Golang"],
+        "required_years": 7.0,
+        "label": 0.5
+      },
+      {
+        "job_id": "job_devops_3",
+        "title": "Backend Go Developer",
+        "description": "Go developer for microservices. Will be deploying to Kubernetes, so Docker/K8s knowledge is very helpful.",
+        "required_skills": ["Golang", "Kubernetes", "Docker"],
+        "required_years": 3.0,
+        "label": 0.5
+      },
+      {
+        "job_id": "job_devops_4",
+        "title": "Systems Administrator",
+        "description": "On-premise Linux sysadmin. Shell scripting required.",
+        "required_skills": ["Linux", "Bash"],
+        "required_years": 2.0,
+        "label": 0.2
+      },
+      {
+        "job_id": "job_devops_5",
+        "title": "Data Engineer",
+        "description": "Building ETL pipelines in Apache Spark and Airflow. Hadoop ecosystem knowledge required.",
+        "required_skills": ["Spark", "Airflow", "Hadoop"],
+        "required_years": 3.0,
+        "label": 0.0
+      }
+    ]
+  }
+]

@@ -119,6 +119,28 @@ class Settings(BaseModel):
     # Tune based on observed Adzuna/Jooble quota consumption once live.
     jobs_per_user_rotation_batch_size: int = int(os.getenv("JOBS_PER_USER_ROTATION_BATCH_SIZE", "3"))
 
+    # ---------------------------------------------------------------------------
+    # Hybrid scoring weights
+    # Must sum ≤ 1.0.  Tune via .env after observing real ranking quality.
+    # scoring_version tracks which formula produced a stored match score:
+    #   v1 = semantic-only (original)
+    #   v2 = hybrid (Phase 2+3)
+    #   v3 = hybrid + LLM rerank (Phase 4)
+    # ---------------------------------------------------------------------------
+    scoring_weight_semantic:    float = float(os.getenv("SCORING_WEIGHT_SEMANTIC",    "0.50"))
+    scoring_weight_skill:       float = float(os.getenv("SCORING_WEIGHT_SKILL",       "0.25"))
+    scoring_weight_title:       float = float(os.getenv("SCORING_WEIGHT_TITLE",       "0.15"))
+    scoring_weight_experience:  float = float(os.getenv("SCORING_WEIGHT_EXPERIENCE",  "0.10"))
+    required_skill_penalty:     float = float(os.getenv("REQUIRED_SKILL_PENALTY",     "0.05"))
+
+    # ---------------------------------------------------------------------------
+    # Optional LLM reranking (Phase 4)
+    # ---------------------------------------------------------------------------
+    reranking_enabled:      bool = os.getenv("RERANKING_ENABLED", "false").lower() == "true"
+    reranking_top_n:        int  = int(os.getenv("RERANKING_TOP_N", "10"))
+    llm_provider_reranking: str  = os.getenv("LLM_PROVIDER_RERANKING", "")
+
+
 # Build redis_url after Settings is instantiated.
 # Must be done at module level (not inside __init__) so that load_dotenv()
 # has already been called and os.getenv() returns the real values.

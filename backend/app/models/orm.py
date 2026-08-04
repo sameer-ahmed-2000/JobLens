@@ -137,12 +137,19 @@ class JobMatchORM(Base):
     status = Column(String, default="new", nullable=False)  # new, viewed, applied, dismissed
     notified_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=utcnow)
-
+    # Explainable sub-scores — populated by hybrid scorer (v2+). None for v1 (semantic only).
+    score_breakdown = Column(JSON, nullable=True)
+    # Scoring algorithm version — enables historical comparison across scoring formula changes.
+    #   v1 = semantic-only (original cosine)
+    #   v2 = hybrid (semantic + skill + title + experience)
+    #   v3 = hybrid + LLM rerank
+    scoring_version = Column(String, nullable=True, default="v1")
 
     __table_args__ = (
         UniqueConstraint("user_id", "job_id", name="uq_user_job_match"),
         Index("ix_job_matches_user_score_created", "user_id", "score", "created_at"),
     )
+
 
 
 class EmbeddingCacheORM(Base):
@@ -191,6 +198,18 @@ class JobORM(Base):
     embedding = Column(VECTOR(384), nullable=True)
     created_at = Column(DateTime, default=utcnow)
     last_seen_at = Column(DateTime, default=utcnow, nullable=True)
+    # ---------------------------------------------------------------------------
+    # Structured fields — derived deterministically by job_parser during embedding.
+    # Source of truth is always the raw job description; reprocessing regenerates
+    # these fields. Do not allow manual edits.
+    # ---------------------------------------------------------------------------
+    required_skills  = Column(JSON,   nullable=True)   # List[str] extracted before "nice to have" markers
+    preferred_skills = Column(JSON,   nullable=True)   # List[str] extracted after those markers
+    normalized_title = Column(String, nullable=True)   # canonical title slug e.g. "frontend_engineer"
+    # Tracks which job_parser version produced the structured fields above.
+    # Allows identifying stale records when parser logic improves.
+    #   v1 = SkillExtractor + ExperienceExtractor + TitleNormalizer + SeniorityDetector (initial)
+    job_parser_version = Column(String, nullable=True)
 
     company = relationship("CompanyORM", back_populates="jobs")
 

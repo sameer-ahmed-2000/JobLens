@@ -86,7 +86,24 @@ class ResumeRepository:
             tech_str = ", ".join(techs)
             project_descs.append(f"Project {p.get('name', '')}: {p.get('description', '')} Technologies used: {tech_str}.")
         projects_text = " ".join(project_descs)
-        experience_text = f"Target Role: {title}. Professional experience: {years_experience} years in AI software engineering, LLM applications, and RAG systems."
+
+        # Derive experience_text from the actual resume — NOT hardcoded to any domain.
+        # raw_text (the full extracted PDF/DOCX text) is the richest signal.
+        # Falls back to skills + project descriptions when raw_text is absent.
+        experience_parts = [
+            f"Target Role: {title}.",
+            f"Professional experience: {years_experience} years.",
+        ]
+        if raw_text:
+            experience_parts.append(raw_text[:500])
+        else:
+            skills_summary = ", ".join(skills[:10])
+            experience_parts.append(f"Skills include: {skills_summary}.")
+            for p in projects[:2]:
+                desc = (p.get("description") or "")[:200]
+                if desc:
+                    experience_parts.append(desc)
+        experience_text = " ".join(experience_parts)
 
         try:
             skill_emb = embedding_service.embed_resume_section(skills_text)

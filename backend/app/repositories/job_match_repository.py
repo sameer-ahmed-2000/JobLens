@@ -27,7 +27,9 @@ class JobMatchRepository:
         score: float,
         rationale: Optional[str] = None,
         status: str = "new",
-        match_id: Optional[str] = None
+        match_id: Optional[str] = None,
+        score_breakdown: Optional[Dict[str, Any]] = None,
+        scoring_version: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Upsert a job match scoring record.
@@ -45,13 +47,19 @@ class JobMatchRepository:
                 match.rationale = rationale
             if status != "new":
                 match.status = status
+            if score_breakdown is not None:
+                match.score_breakdown = score_breakdown
+            if scoring_version is not None:
+                match.scoring_version = scoring_version
         else:
             match = JobMatchORM(
                 user_id=user_id,
                 job_id=job_id,
                 score=score,
                 rationale=rationale,
-                status=status
+                status=status,
+                score_breakdown=score_breakdown,
+                scoring_version=scoring_version or "v1",
             )
 
             if match_id:
@@ -140,7 +148,9 @@ class JobMatchRepository:
                 },
                 "overall_score": match.score,
                 "fit_rationale": match.rationale or "Pending analysis...",
-                "status": match.status
+                "status": match.status,
+                "score_breakdown": match.score_breakdown,
+                "scoring_version": match.scoring_version,
             })
         return matches
 
@@ -152,5 +162,7 @@ class JobMatchRepository:
             "score": match.score,
             "rationale": match.rationale,
             "status": match.status,
+            "score_breakdown": match.score_breakdown,
+            "scoring_version": match.scoring_version,
             "created_at": match.created_at
         }

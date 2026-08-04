@@ -60,7 +60,13 @@ class JobRepository:
         seniority: Optional[str] = None,
         experience_required: Optional[float] = None,
         posted_date: Optional[str] = None,
-        embedding: Optional[Any] = None
+        embedding: Optional[Any] = None,
+        # Structured fields derived by job_parser (Phase 3) — all optional so existing
+        # call sites that don’t pass them continue to work unchanged.
+        required_skills: Optional[Any] = None,
+        preferred_skills: Optional[Any] = None,
+        normalized_title: Optional[str] = None,
+        job_parser_version: Optional[str] = None,
     ) -> RawPosting:
         job = self.session.query(JobORM).filter(JobORM.url == url).first()
         if not job and job_id:
@@ -94,6 +100,14 @@ class JobRepository:
                 job.posted_date = posted_date
             if embedding is not None:
                 job.embedding = embedding
+            if required_skills is not None:
+                job.required_skills = required_skills
+            if preferred_skills is not None:
+                job.preferred_skills = preferred_skills
+            if normalized_title is not None:
+                job.normalized_title = normalized_title
+            if job_parser_version is not None:
+                job.job_parser_version = job_parser_version
             self.session.flush()
             self.session.refresh(job)
             return self._to_pydantic(job)
@@ -113,6 +127,10 @@ class JobRepository:
                 experience_required=experience_required,
                 posted_date=posted_date,
                 embedding=embedding,
+                required_skills=required_skills,
+                preferred_skills=preferred_skills,
+                normalized_title=normalized_title,
+                job_parser_version=job_parser_version,
                 last_seen_at=datetime.now(timezone.utc)
             )
             if job_id:
@@ -121,6 +139,31 @@ class JobRepository:
             self.session.flush()
             self.session.refresh(job)
             return self._to_pydantic(job)
+
+    def get_structured_fields(self, job_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Lightweight read of structured fields only — avoids loading the full description.
+        Used by the scoring node to compute hybrid score components.
+        Returns None if the job is not found or has no structured data yet.
+        """
+        job = self.session.query(
+            JobORM.id, JobORM.title, JobORM.normalized_title,
+            JobORM.required_skills, JobORM.preferred_skills,
+            JobORM.experience_required, JobORM.seniority,
+            JobORM.job_parser_version,
+        ).filter(JobORM.id == job_id).first()
+        if not job:
+            return None
+        return {
+            "id":               job.id,
+            "title":            job.title,
+            "normalized_title": job.normalized_title,
+            "required_skills":  job.required_skills or [],
+            "preferred_skills": job.preferred_skills or [],
+            "experience_required": job.experience_required,
+            "seniority":        job.seniority,
+            "job_parser_version": job.job_parser_version,
+        }
 
     def _to_pydantic(self, job: JobORM, comp_name_override: Optional[str] = None) -> RawPosting:
         comp_name = comp_name_override

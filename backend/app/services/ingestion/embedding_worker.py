@@ -117,7 +117,7 @@ class EmbeddingWorker:
         return processed_count
 
     def process_job_by_id(self, job_id: str) -> bool:
-        """Compute the embedding for a single job ID and upsert to database."""
+        """Compute the embedding and structured fields for a single job ID and upsert to database."""
         with UnitOfWork() as uow:
             posting = uow.jobs.get_by_id(job_id)
             if not posting:
@@ -128,18 +128,54 @@ class EmbeddingWorker:
             text_to_embed = f"Title: {posting.title}. Company: {posting.company}. Description: {posting.description}"
             emb = embed_service.embed_job(text_to_embed)
 
-            # Update database record with computed embedding
-            uow.jobs.upsert(
+            # Extract structured fields deterministically — no LLM, no extra DB queries.
+            # These are derived from the job description and stored as-is.
+            # Source of truth remains the description; reprocessing regenerates them.
+            # Wrapped in try/except: a parser failure must never block embedding storage.
+            structured = None
+            try:
+                from app.services.job_parser import extract_job_fields
+                structured = extract_job_fields(posting.title, posting.description)
+            except Exception as e:
+                logger.warning(
+                    f"EmbeddingWorker: job_parser failed for job '{posting.id}' "
+                    f"('{posting.title}') — structured fields will be left unpopulated: {e}"
+                )
+
+            # Update database record with embedding + structured fields in a single upsert
+            upsert_kwargs = dict(
                 title=posting.title,
                 company_name=posting.company,
                 description=posting.description,
                 url=posting.url,
                 source=posting.source,
                 job_id=posting.id,
-                embedding=emb.tolist() if hasattr(emb, "tolist") else list(emb)
+                embedding=emb.tolist() if hasattr(emb, "tolist") else list(emb),
             )
+            if structured is not None:
+                upsert_kwargs.update(
+                    required_skills=structured.required_skills,
+                    preferred_skills=structured.preferred_skills,
+                    experience_required=structured.required_years,
+                    normalized_title=structured.normalized_title,
+                    seniority=structured.seniority,
+                    job_parser_version=structured.parser_version,
+                )
+            uow.jobs.upsert(**upsert_kwargs)
             uow.commit()
-            logger.info(f"EmbeddingWorker: successfully computed and stored embedding for job '{posting.title}' at '{posting.company}'.")
+            if structured is not None:
+                logger.info(
+                    f"EmbeddingWorker: stored embedding + structured fields for "
+                    f"'{posting.title}' at '{posting.company}' "
+                    f"(required={len(structured.required_skills)} skills, "
+                    f"parser={structured.parser_version})."
+                )
+            else:
+                logger.info(
+                    f"EmbeddingWorker: stored embedding for '{posting.title}' at "
+                    f"'{posting.company}' (structured fields skipped due to parser error)."
+                )
+
             
             # Enqueue job ID for scoring match calculations
             try:
@@ -149,6 +185,7 @@ class EmbeddingWorker:
                 logger.error(f"EmbeddingWorker: Failed to enqueue job '{posting.id}' for scoring: {e}")
 
             return True
+
 
     def recover_stuck_jobs(self) -> None:
         """
