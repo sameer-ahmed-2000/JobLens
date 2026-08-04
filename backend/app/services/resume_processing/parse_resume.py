@@ -65,7 +65,12 @@ def parse_resume_text(raw_text: str) -> Tuple[ResumeProfile, str]:
     """
     prompt = f"""You are an expert HR and AI technical recruiter.
 Analyze the following Resume Text and extract the candidate profile.
-You MUST extract ALL projects, skills, and years of experience mentioned in the resume. Do not skip, merge, or omit any project.
+CRITICAL INSTRUCTIONS:
+1. Extract ALL work experience, jobs, and professional projects into the `projects` array. Treat every job role or major work initiative as a "project".
+2. Accurately calculate the total `years_experience` based on the dates provided in the work history (e.g. Sep 2022 to Present is ~2+ years). If no dates are found, default to 0.
+3. Extract ALL technical skills mentioned across the resume into the `skills` array.
+4. Do not skip, merge, or omit any job or project.
+
 Return ONLY valid JSON matching this exact schema:
 {{
   "title": "e.g. Senior Machine Learning Engineer, Software Engineer",
@@ -73,8 +78,8 @@ Return ONLY valid JSON matching this exact schema:
   "skills": ["Python", "PyTorch", "FastAPI", "React"],
   "projects": [
     {{
-      "name": "Project Name",
-      "description": "Project description",
+      "name": "Job Title or Project Name",
+      "description": "Description of responsibilities and achievements",
       "technologies": ["Python", "FastAPI"]
     }}
   ]
@@ -100,9 +105,27 @@ Resume Text:
     # Attempt 2 (Retry with simplified prompt)
     if not extracted_profile:
         logger.info("Retrying resume parsing once after initial failure...")
-        retry_prompt = f"""Extract profile details from the resume text below. You MUST return ONLY valid JSON with keys: "title", "years_experience", "skills", "projects" (each project must have "name", "description", "technologies").
+        retry_prompt = f"""Extract the candidate profile from this resume.
+CRITICAL INSTRUCTIONS:
+1. Extract ALL work experience, jobs, and professional projects into the `projects` array.
+2. Accurately calculate the total `years_experience` from the employment dates.
+3. Extract ALL technical skills into the `skills` array.
 
-Resume Text:
+Return ONLY JSON matching:
+{{
+  "title": "Job Title",
+  "years_experience": 4.5,
+  "skills": ["Skill1", "Skill2"],
+  "projects": [
+    {{
+      "name": "Job Title or Project Name",
+      "description": "Short description",
+      "technologies": ["Tech1"]
+    }}
+  ]
+}}
+
+Resume:
 {raw_text[:16000]}
 """
         try:
