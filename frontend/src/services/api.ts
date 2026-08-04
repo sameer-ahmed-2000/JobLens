@@ -12,9 +12,9 @@ const apiClient = axios.create({
   },
 });
 
-// Axios interceptor to attach dynamic authorization bearer token from sessionStorage
+// Axios interceptor to attach dynamic authorization bearer token from localStorage
 apiClient.interceptors.request.use((config) => {
-  const token = sessionStorage.getItem('joblens_auth_token') || DEFAULT_USER_TOKEN;
+  const token = localStorage.getItem('joblens_auth_token') || DEFAULT_USER_TOKEN;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }

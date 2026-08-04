@@ -264,7 +264,7 @@ export const ResumeUploader: React.FC<ResumeUploaderProps> = ({
                     {proj.technologies?.length > 0 && (
                       <div className="flex flex-wrap gap-1 pt-0.5">
                         {proj.technologies.map((tech, tIdx) => (
-                          <span key={tIdx} className="bg-base text-gray-450 border border-gray-850 px-1 py-0.2 rounded text-[9px] font-mono">
+                          <span key={tIdx} className="bg-gray-800/50 text-gray-300 border border-gray-700 px-1.5 py-0.5 rounded-md text-[9px] font-mono">
                             {tech}
                           </span>
                         ))}

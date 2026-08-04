@@ -421,7 +421,7 @@ export const CareerProfile: React.FC = () => {
                         {proj.technologies?.length > 0 && (
                           <div className="flex flex-wrap gap-1 pt-1">
                             {proj.technologies.map((tech, tIdx) => (
-                              <span key={tIdx} className="bg-gray-100 text-gray-650 px-2 py-0.5 rounded-lg text-[10px] font-semibold border border-gray-200/50">
+                              <span key={tIdx} className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded-lg text-[10px] font-semibold border border-gray-200/50">
                                 {tech}
                               </span>
                             ))}

@@ -79,14 +79,22 @@ class ResumeRepository:
             combined_text = structured_text
 
         # Compute embedding using embedding_service (mimicking resume_index logic)
-        skills_text = "Skills: " + ", ".join(skills)
+        from app.models.orm import UserORM
+        user = self.session.query(UserORM).filter(UserORM.id == user_id).first()
+        manual_skills = user.manual_core_skills or [] if user else []
+        manual_target_role = user.manual_target_role if user else None
+
+        effective_title = manual_target_role or title
+        effective_skills = list(dict.fromkeys(manual_skills + skills))
+
+        skills_text = "Skills: " + ", ".join(effective_skills)
         project_descs = []
         for p in projects:
             techs = p.get("technologies") or p.get("tech_stack") or []
             tech_str = ", ".join(techs)
             project_descs.append(f"Project {p.get('name', '')}: {p.get('description', '')} Technologies used: {tech_str}.")
         projects_text = " ".join(project_descs)
-        experience_text = f"Target Role: {title}. Professional experience: {years_experience} years in AI software engineering, LLM applications, and RAG systems."
+        experience_text = f"Target Role: {effective_title}. Professional experience: {years_experience} years."
 
         try:
             skill_emb = embedding_service.embed_resume_section(skills_text)

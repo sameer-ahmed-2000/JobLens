@@ -47,11 +47,12 @@ def compare_skills_node(state: Dict[str, Any]) -> Dict[str, Any]:
         return {"skill_gaps": []}
 
     user_id = state.get("user_id", "default-user-id")
-    resume = None
+    user = None
     try:
         from app.repositories.uow import UnitOfWork
         with UnitOfWork() as uow:
             resume = uow.resumes.get_active(user_id)
+            user = uow.users.get_by_id(user_id)
             if resume:
                 logger.info(f"Loaded active resume from database for skill comparison (user: {user_id}).")
     except Exception as e:
@@ -63,7 +64,9 @@ def compare_skills_node(state: Dict[str, Any]) -> Dict[str, Any]:
 
     # Build candidate knowledge base
     candidate_skills: Set[str] = set()
-    for s in resume.get("skills", []):
+    manual_skills = user.get("manual_core_skills") or [] if user else []
+    all_skills = list(dict.fromkeys(manual_skills + resume.get("skills", [])))
+    for s in all_skills:
         norm_s = normalize_skill_name(s, aliases).lower()
         candidate_skills.add(norm_s)
         candidate_skills.add(s.lower())

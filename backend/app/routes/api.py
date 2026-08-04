@@ -147,7 +147,15 @@ async def update_profile(
         if not user:
             raise HTTPException(status_code=404, detail="User profile not found.")
 
+        MIN_DISPLAY_THRESHOLD = 0.4
+
         target_display = profile_data.display_threshold if profile_data.display_threshold is not None else user.display_threshold
+        if target_display < MIN_DISPLAY_THRESHOLD:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Display threshold cannot be set below {MIN_DISPLAY_THRESHOLD:.0%} -- matches below this floor are considered too weak to be useful."
+            )
+
         target_notify = profile_data.notify_threshold if profile_data.notify_threshold is not None else user.notify_threshold
 
         if target_notify < target_display:
@@ -175,7 +183,9 @@ async def update_profile(
             display_threshold=profile_data.display_threshold,
             quiet_hours_start=profile_data.quiet_hours_start,
             quiet_hours_end=profile_data.quiet_hours_end,
-            timezone=profile_data.timezone
+            timezone=profile_data.timezone,
+            manual_core_skills=profile_data.manual_core_skills,
+            manual_target_role=profile_data.manual_target_role
         )
         uow.commit()
         return updated_user

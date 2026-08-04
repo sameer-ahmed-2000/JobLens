@@ -12,7 +12,7 @@ export const Header: React.FC = () => {
   const queryClient = useQueryClient();
 
   const [token, setToken] = useState(() => {
-    return sessionStorage.getItem('joblens_auth_token') || DEFAULT_USER_TOKEN;
+    return localStorage.getItem('joblens_auth_token') || DEFAULT_USER_TOKEN;
   });
 
   const [isSignupOpen, setIsSignupOpen] = useState(false);
@@ -34,21 +34,21 @@ export const Header: React.FC = () => {
   // If getProfile fails with 401/403, purge the dead token and return to guest mode cleanly
   useEffect(() => {
     if (isError && hasCustomToken) {
-      console.warn("Session token is dead or expired. Purging sessionStorage and resetting to guest mode.");
-      sessionStorage.removeItem('joblens_auth_token');
+      console.warn("Session token is dead or expired. Purging localStorage and resetting to guest mode.");
+      localStorage.removeItem('joblens_auth_token');
       setToken(DEFAULT_USER_TOKEN);
       queryClient.invalidateQueries();
     }
   }, [isError, hasCustomToken, queryClient]);
 
   const handleSignupSuccess = (newToken: string) => {
-    sessionStorage.setItem('joblens_auth_token', newToken);
+    localStorage.setItem('joblens_auth_token', newToken);
     setToken(newToken);
     queryClient.invalidateQueries();
   };
 
   const handleSignOut = () => {
-    sessionStorage.removeItem('joblens_auth_token');
+    localStorage.removeItem('joblens_auth_token');
     setToken(DEFAULT_USER_TOKEN);
     queryClient.clear();
     window.location.reload();

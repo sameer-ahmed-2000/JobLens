@@ -127,11 +127,24 @@ class ResumeIndex(IResumeIndex):
 
         keywords: List[str] = []
 
+        user = None
+        if user_id:
+            try:
+                with UnitOfWork() as uow:
+                    user = uow.users.get_by_id(user_id)
+            except Exception as e:
+                logger.warning(f"Could not load user for manual fields in ResumeIndex: {e}")
+
         title = (data.get("title") or "").strip()
+        if user and user.get("manual_target_role"):
+            title = user["manual_target_role"]  # manual wins on conflict
+            
         if title:
             keywords.append(title)
 
         skills_source = data.get("skills", data.get("parsed_skills", []))
+        manual_skills = (user.get("manual_core_skills") or []) if user else []
+        skills_source = manual_skills + [s for s in skills_source if s not in manual_skills]
         for skill in skills_source:
             skill = (skill or "").strip()
             if skill and skill not in keywords:

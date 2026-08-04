@@ -98,8 +98,8 @@ export const SignupModal: React.FC<SignupModalProps> = ({
       const res = await signupUser(payload);
       const token = res.raw_token;
 
-      // 2. Automatically store token in sessionStorage for immediate current-tab login
-      sessionStorage.setItem('joblens_auth_token', token);
+      // 2. Automatically store token in localStorage for immediate current-tab login
+      localStorage.setItem('joblens_auth_token', token);
 
       // 3. Upload Resume asynchronously (202 Accepted, non-blocking SSE)
       try {
@@ -136,8 +136,8 @@ export const SignupModal: React.FC<SignupModalProps> = ({
     try {
       const res = await signinUser({ email: signinEmail.trim(), password: signinPassword });
       
-      // Token is valid! Store in sessionStorage and sign in.
-      sessionStorage.setItem('joblens_auth_token', res.raw_token);
+      // Token is valid! Store in localStorage and sign in.
+      localStorage.setItem('joblens_auth_token', res.raw_token);
       onSuccess(res.raw_token, res.user);
       onClose();
     } catch (err: any) {

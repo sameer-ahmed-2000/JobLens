@@ -57,6 +57,9 @@ Do not invent experience."""
         logger.warning(f"Ollama overall summary generation failed: {e}")
         overall_fit_summary = "Summary unavailable."
 
+    LOW_SKILL_COVERAGE_THRESHOLD = 0.4
+    is_low_confidence = confidence_score < LOW_SKILL_COVERAGE_THRESHOLD
+
     # Compile final GapReport
     report = GapReport(
         job_title=job_title,
@@ -64,6 +67,7 @@ Do not invent experience."""
         match_score=confidence_score,
         confidence_score=confidence_score,
         confidence_reasoning=confidence_reasoning,
+        is_low_confidence=is_low_confidence,
         gaps=skill_gaps,
         overall_recommendation=overall_fit_summary,
         overall_fit_summary=overall_fit_summary

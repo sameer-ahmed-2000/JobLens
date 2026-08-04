@@ -24,13 +24,29 @@ def extract_fallback_skills(text: str) -> List[str]:
             found_skills.add(canonical)
             
     # Add common tech terms if present
-    common = ["python", "java", "c++", "aws", "docker", "kubernetes", "sql", "git", "linux", "react", "fastapi", "langgraph", "llm", "rag", "machine learning"]
+    common = ["python", "java", "c++", "aws", "docker", "kubernetes", "sql", "git", "linux", "react", "fastapi", "langgraph", "llm", "rag", "machine learning", "go", "rust", "typescript", "node.js", "terraform", "graphql", "kafka", "ci/cd", "ruby", "php", "spring", ".net"]
     for term in common:
         if re.search(r"\b" + re.escape(term) + r"\b", text_lower):
             # Format nicely
-            found_skills.add(term.upper() if len(term) <= 3 else term.title() if term not in ("fastapi", "langgraph", "llm", "rag", "aws") else term.upper() if term in ("llm", "rag", "aws", "sql") else "FastAPI" if term == "fastapi" else "LangGraph")
+            found_skills.add(term.upper() if len(term) <= 3 else term.title() if term not in ("fastapi", "langgraph", "llm", "rag", "aws", "ci/cd", "node.js", ".net") else term.upper() if term in ("llm", "rag", "aws", "sql", "ci/cd") else "Node.js" if term == "node.js" else "FastAPI" if term == "fastapi" else ".NET" if term == ".net" else "LangGraph")
+            
+    # Generic heuristic pass
+    found_skills.update(_extract_near_skill_headers(text))
             
     return sorted(list(found_skills))
+
+def _extract_near_skill_headers(text: str) -> List[str]:
+    """
+    Field-agnostic-within-tech fallback: pulls comma/pipe-separated terms
+    following common resume section headers, so a stack not in the hardcoded
+    alias list still gets picked up when the LLM call fails.
+    """
+    pattern = r"(?:Skills|Technologies|Tech Stack|Proficient in)[:\-]\s*(.+)"
+    matches = re.findall(pattern, text, re.IGNORECASE)
+    terms = []
+    for m in matches:
+        terms.extend([t.strip() for t in re.split(r"[,|/]", m) if 1 < len(t.strip()) < 30])
+    return terms
 
 def extract_jd_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """LangGraph node to extract structured job requirements from JD text via Ollama."""

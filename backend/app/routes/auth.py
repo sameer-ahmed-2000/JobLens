@@ -5,7 +5,7 @@ import uuid
 import bcrypt
 from datetime import datetime, timedelta, timezone
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, BackgroundTasks
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.config import settings
 from app.repositories.uow import UnitOfWork
@@ -17,16 +17,30 @@ logger = logging.getLogger("auth")
 security = HTTPBearer()
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-# Dummy hash for timing attack mitigation
-# Cost 12 is typical, we use the default of bcrypt.gensalt()
-DUMMY_HASH = bcrypt.hashpw(b"dummy_password", bcrypt.gensalt()).decode("utf-8")
+def _embed_resume_background(user_id: str, title: str, years_experience: float, skills: list, projects: list):
+    """Runs after the response is sent — embedding latency no longer blocks signup."""
+    try:
+        with UnitOfWork() as uow:
+            uow.resumes.upsert_resume(
+                user_id=user_id,
+                title=title,
+                years_experience=years_experience,
+                skills=skills,
+                projects=projects
+            )
+            uow.commit()
+    except Exception:
+        logger.exception(f"Background resume embedding failed for user_id={user_id}")
+
+# Cost 12 is typical, but we reduce to 10 for faster sign-ins
+DUMMY_HASH = bcrypt.hashpw(b"dummy_password", bcrypt.gensalt(rounds=10)).decode("utf-8")
 
 def get_password_hash(password: str) -> str:
     # Validate length again just in case, though schema covers it
     password_bytes = password.encode('utf-8')
     if len(password_bytes) > 72:
         raise ValueError("Password is too long (exceeds 72 bytes)")
-    return bcrypt.hashpw(password_bytes, bcrypt.gensalt()).decode('utf-8')
+    return bcrypt.hashpw(password_bytes, bcrypt.gensalt(rounds=10)).decode('utf-8')
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     try:
@@ -91,7 +105,7 @@ def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(secu
 
 @router.post("/signup", response_model=SignupResponse)
 @limiter.limit("5/minute")
-def signup(request: Request, req: SignupRequest):
+def signup(request: Request, req: SignupRequest, background_tasks: BackgroundTasks):
     """
     Self-serve user signup with invite token protection.
     1. Compares invite_code against SIGNUP_INVITE_TOKEN using constant-time comparison.
@@ -135,27 +149,28 @@ def signup(request: Request, req: SignupRequest):
             hashed_password=hashed_password
         )
 
-        # 6. Resume creation with synchronous vector embedding
-        uow.resumes.upsert_resume(
-            user_id=user_dict["id"],
-            title=req.title.strip() if req.title else "Software Engineer",
-            years_experience=req.years_experience if req.years_experience is not None else 0.0,
-            skills=req.skills or [],
-            projects=req.projects or []
-        )
-
         uow.commit()
 
-        user_profile = UserProfileSchema(
-            id=user_dict["id"],
-            name=user_dict["name"],
-            email=user_dict["email"],
-            whatsapp_number=user_dict["whatsapp_number"],
-            notify_threshold=user_dict["notify_threshold"],
-            display_threshold=user_dict["display_threshold"]
-        )
+    # 6. Defer the slow embedding work until after the response is returned
+    background_tasks.add_task(
+        _embed_resume_background,
+        user_id=user_dict["id"],
+        title=req.title.strip() if req.title else "Software Engineer",
+        years_experience=req.years_experience if req.years_experience is not None else 0.0,
+        skills=req.skills or [],
+        projects=req.projects or []
+    )
 
-        return SignupResponse(user=user_profile, raw_token=raw_token)
+    user_profile = UserProfileSchema(
+        id=user_dict["id"],
+        name=user_dict["name"],
+        email=user_dict["email"],
+        whatsapp_number=user_dict["whatsapp_number"],
+        notify_threshold=user_dict["notify_threshold"],
+        display_threshold=user_dict["display_threshold"]
+    )
+
+    return SignupResponse(user=user_profile, raw_token=raw_token)
 
 
 @router.post("/signin", response_model=SignupResponse)

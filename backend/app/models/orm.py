@@ -66,6 +66,8 @@ class UserORM(Base):
     quiet_hours_start = Column(String, nullable=True)
     quiet_hours_end = Column(String, nullable=True)
     timezone = Column(String, nullable=True, default="Asia/Kolkata")
+    manual_core_skills = Column(JSON, nullable=True)
+    manual_target_role = Column(String, nullable=True)
     created_at = Column(DateTime, default=utcnow)
     last_keyword_search_at = Column(DateTime, nullable=True)  # NULL = never searched; sorts first in rotation
 

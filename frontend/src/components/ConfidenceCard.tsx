@@ -107,7 +107,15 @@ export const ConfidenceCard: React.FC<ConfidenceCardProps> = ({ report }) => {
 
       </div>
 
-      {report.confidence_reasoning && (
+      {report.is_low_confidence ? (
+        <div className="mt-3.5 pt-3 border-t border-gray-850 flex items-start gap-2">
+          <AlertTriangleIcon size={16} className="text-alert-red shrink-0 mt-0.5" />
+          <div className="text-xs text-alert-red leading-relaxed font-medium">
+            Below 40% skill coverage — review carefully before applying. 
+            <span className="text-gray-400 italic ml-1 block mt-1">"{report.confidence_reasoning}"</span>
+          </div>
+        </div>
+      ) : report.confidence_reasoning && (
         <div className="mt-3.5 pt-3 border-t border-gray-850 text-xs text-gray-400 leading-relaxed italic">
           "{report.confidence_reasoning}"
         </div>

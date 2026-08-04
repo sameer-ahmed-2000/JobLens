@@ -62,6 +62,7 @@ class GapReport(BaseModel):
     match_score: float
     confidence_score: Optional[float] = None
     confidence_reasoning: Optional[str] = None
+    is_low_confidence: Optional[bool] = None
     gaps: List[SkillGap]
     overall_recommendation: str
     overall_fit_summary: Optional[str] = None
@@ -81,6 +82,8 @@ class UserProfileSchema(BaseModel):
     quiet_hours_start: Optional[str] = None
     quiet_hours_end: Optional[str] = None
     timezone: Optional[str] = "Asia/Kolkata"
+    manual_core_skills: Optional[List[str]] = None
+    manual_target_role: Optional[str] = None
 
 class UserProfileUpdateSchema(BaseModel):
     name: Optional[str] = None
@@ -91,6 +94,8 @@ class UserProfileUpdateSchema(BaseModel):
     quiet_hours_start: Optional[str] = None
     quiet_hours_end: Optional[str] = None
     timezone: Optional[str] = None
+    manual_core_skills: Optional[List[str]] = None
+    manual_target_role: Optional[str] = None
 
 class NotificationItemSchema(BaseModel):
     id: str

@@ -37,7 +37,9 @@ class UserRepository:
         hashed_password: Optional[str] = None,
         quiet_hours_start: Optional[str] = None,
         quiet_hours_end: Optional[str] = None,
-        timezone: Optional[str] = "Asia/Kolkata"
+        timezone: Optional[str] = "Asia/Kolkata",
+        manual_core_skills: Optional[List[str]] = None,
+        manual_target_role: Optional[str] = None
     ) -> Dict[str, Any]:
         user = UserORM(
             name=name,
@@ -49,7 +51,9 @@ class UserRepository:
             hashed_password=hashed_password,
             quiet_hours_start=quiet_hours_start,
             quiet_hours_end=quiet_hours_end,
-            timezone=timezone
+            timezone=timezone,
+            manual_core_skills=manual_core_skills,
+            manual_target_role=manual_target_role
         )
         if user_id:
             user.id = user_id
@@ -76,7 +80,9 @@ class UserRepository:
         display_threshold: Optional[float] = None,
         quiet_hours_start: Optional[str] = None,
         quiet_hours_end: Optional[str] = None,
-        timezone: Optional[str] = None
+        timezone: Optional[str] = None,
+        manual_core_skills: Optional[List[str]] = None,
+        manual_target_role: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
         user = self.session.query(UserORM).filter(UserORM.id == user_id).first()
         if not user:
@@ -96,6 +102,10 @@ class UserRepository:
             user.quiet_hours_end = quiet_hours_end
         if timezone is not None:
             user.timezone = timezone
+        if manual_core_skills is not None:
+            user.manual_core_skills = manual_core_skills
+        if manual_target_role is not None:
+            user.manual_target_role = manual_target_role
         self.session.flush()
         return self._to_dict(user)
 
@@ -134,6 +144,8 @@ class UserRepository:
             "quiet_hours_start": user.quiet_hours_start,
             "quiet_hours_end": user.quiet_hours_end,
             "timezone": user.timezone,
+            "manual_core_skills": user.manual_core_skills,
+            "manual_target_role": user.manual_target_role,
             "created_at": user.created_at,
             "last_keyword_search_at": user.last_keyword_search_at,
         }
