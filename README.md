@@ -2,240 +2,158 @@
 
 > **AI-Powered Real-Time Job Discovery & Skill Gap Analysis System**
 
-JobLens is an intelligent career acceleration platform that aggregates job postings across multiple job boards (Greenhouse, Lever, Ashby) and live search engines (Adzuna, Jooble, Remotive, Arbeitnow). It ranks job opportunities against your precomputed resume index using a weighted multi-factor scoring formula and produces explainable skill gap reports with tailored bridge suggestions.
+JobLens is an intelligent career acceleration platform that aggregates job postings across public ATS boards (Greenhouse, Lever, Ashby) and live job search APIs (Adzuna, Jooble, Remotive, Arbeitnow). It ranks job opportunities against your precomputed resume vector index using cosine similarity and produces explainable skill gap reports with project-backed bridge suggestions.
 
 ---
 
 ## 🛠️ Technology Stack
 
 * **Backend**: Python 3.10+ managed with [`uv`](https://github.com/astral-sh/uv), FastAPI, SQLAlchemy 2.0, Alembic, Pydantic V2, LangGraph
-* **Database**: PostgreSQL (Aiven/Supabase) or local SQLite + Redis (Upstash/local Stream Queue & Caching)
+* **Database & Caching**: PostgreSQL (Aiven/Supabase/local) or SQLite + Redis (Upstash/local Redis 7 for rate limiting & streams)
 * **Frontend**: React 19, TypeScript, Vite, TailwindCSS
-* **AI / LLM Routing**: FreeModel.dev (OpenAI-compatible), Ollama (Local Llama 3), SentenceTransformers, FAISS
+* **AI / LLM Routing**: FreeModel.dev (OpenAI-compatible), Groq, Google Gemini, Ollama (Local Llama 3), SentenceTransformers, FAISS
 
 ---
 
 ## 📋 Prerequisites
 
-Before starting, ensure you have the following installed on your system:
+Ensure you have the following installed before beginning setup:
 
 1. **Python 3.10+** and **`uv`** (Astral's fast Python package installer):
    ```bash
-   # Install uv (Windows PowerShell)
+   # Windows (PowerShell)
    powershell -executionpolicy bypass -c "irm https://astral.sh/uv/install.ps1 | iex"
    
-   # Install uv (macOS / Linux)
+   # macOS / Linux
    curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
 2. **Node.js** (v18+) & `npm`
-3. **Docker & Docker Compose** (for running Redis)
+3. **Docker & Docker Compose** (optional, for local Redis/PostgreSQL)
 
 ---
 
-## 🔑 API Keys & Configuration Guide
+## 🔑 Environment Setup (`.env` Configuration)
 
-JobLens uses several external services. Here is how to obtain and configure all required and optional API keys.
+JobLens requires environment configuration in `backend/.env`. A complete, fully-documented template is provided in [`backend/.env.example`](backend/.env.example).
 
-### 1. LLM Provider (Required for Rationale & Gap Analysis)
-JobLens supports multiple LLM providers via `llm_router.py`:
-* **FreeModel.dev (Pre-configured Default)**:
-  * Uses an OpenAI-compatible API endpoint.
-  * An active free key is already included in `backend/.env`: `FREEMODEL_API_KEY=your_freemodel_api_key_here`
-* **Local Ollama (Alternative)**:
-  * Install [Ollama](https://ollama.ai) and pull Llama 3: `ollama pull llama3`
-  * Set `LLM_PROVIDER=ollama` in `backend/.env`.
+### Step 1: Create your `backend/.env` file
 
----
+Navigate to the `backend` directory and copy `.env.example`:
 
-### 2. Live Job Search Aggregators
+```bash
+cd backend
+cp .env.example .env
+```
 
-#### 🌐 **Adzuna API** (Recommended)
-* **What it does**: Powers real-time, keyword-driven search across worldwide job markets.
-* **How to get free keys**:
-  1. Register for a free developer account at [https://developer.adzuna.com](https://developer.adzuna.com).
-  2. Copy your **App ID** and **App Key** from your dashboard.
-  3. Set them in `backend/.env`:
-     ```env
-     ADZUNA_APP_ID=your_app_id_here
-     ADZUNA_APP_KEY=your_app_key_here
-     ADZUNA_COUNTRY=in     # Country code: in, us, gb, ca, etc.
-     ADZUNA_ENABLED=true
-     ```
+### Step 2: Configure Environment Variables
 
-#### 🌐 **Jooble API** (Recommended)
-* **What it does**: Aggregates job postings from LinkedIn, Indeed, ZipRecruiter, and thousands of regional job boards.
-* **How to get free key**:
-  1. Register for a free developer key at [https://jooble.org/api/about](https://jooble.org/api/about) (no credit card required).
-  2. Set your key in `backend/.env`:
-     ```env
-     JOOBLE_API_KEY=your_jooble_key_here
-     JOOBLE_ENABLED=true
-     ```
+Open `backend/.env` and configure the following key sections:
 
-#### 🌐 **Remotive & Arbeitnow**
-* **What they do**: Provide remote tech and startup job feeds.
-* **API Key required?**: **No!** Both services provide open public APIs. They are enabled out of the box (`REMOTIVE_ENABLED=true`, `ARBEITNOW_ENABLED=true`).
-
----
-
-### 3. Direct ATS Connectors (Greenhouse, Lever, Ashby)
-* **API Key required?**: **No!** JobLens directly parses public board feeds (e.g. Anthropic, Stripe, Netflix, Vercel, Linear) defined in `data/job_sources.json`.
-
----
-
-## 🚀 Local Execution Guide
-
-### Step 1: Environment Setup
-
-1. **Root Environment File** (used by Docker Compose and local processes):
-   Create a `.env` file in the root directory:
-   ```env
-   REDIS_PASSWORD=your_redis_password_here
-   # Or a complete Redis URL (e.g. for Upstash secure Redis):
-   REDIS_URL="rediss://default:password@host:port"
+1. **JWT Secret Key (Required)**:
+   Generate a 32+ character random hex string:
+   ```bash
+   python -c "import secrets; print(secrets.token_hex(32))"
    ```
+   Set it in `backend/.env`: `JWT_SECRET_KEY=your_generated_hex_key_here`
 
-2. **Backend Environment File**:
-   Create or verify `backend/.env`:
-   ```env
-   # FastAPI Configuration
-   HOST=0.0.0.0
-   PORT=8000
-   ENVIRONMENT=development
+2. **LLM Provider Setup**:
+   * **FreeModel.dev (Pre-configured Default)**: Set `LLM_PROVIDER_DEFAULT=freemodel` and add `FREEMODEL_API_KEY`.
+   * **Local Ollama (Alternative)**: Install [Ollama](https://ollama.ai), run `ollama pull llama3`, and set `LLM_PROVIDER_DEFAULT=ollama`.
+   * **Groq / OpenAI / Gemini**: Add your corresponding API keys and set `LLM_PROVIDER_DEFAULT` or role-specific overrides (`LLM_PROVIDER_RATIONALE`, `LLM_PROVIDER_GAP_ANALYSIS`).
 
-   # Database Configuration (PostgreSQL / SQLite)
-   # e.g., for local SQLite: sqlite:///./joblens.db
-   # e.g., for Aiven PostgreSQL: postgresql://username:password@host:port/dbname?sslmode=require
-   DATABASE_URL=postgresql://username:password@host:port/dbname?sslmode=require
+3. **Database Configuration**:
+   * **PostgreSQL (Recommended)**: Set `DATABASE_URL=postgresql://user:password@host:port/dbname?sslmode=require`
+   * **Local SQLite (Development fallback)**: Set `DATABASE_URL=sqlite:///./joblens.db`
 
-   # LLM Configuration
-   LLM_PROVIDER=freemodel
-   FREEMODEL_API_KEY=your_freemodel_api_key_here
-   FREEMODEL_BASE_URL=https://api.freemodel.dev/v1
-   FREEMODEL_MODEL=auto
-
-   # Redis Configuration (Supports REDIS_URL or host/port/password components)
-   # e.g., REDIS_URL=rediss://default:password@host:port
-   REDIS_URL="rediss://default:password@host:6379"
-   # Fallback components if REDIS_URL is not set:
-   REDIS_HOST=localhost
-   REDIS_PORT=6379
-   REDIS_PASSWORD=your_redis_password_here
-
-   # Aggregators
-   ADZUNA_APP_ID=your_adzuna_app_id
-   ADZUNA_APP_KEY=your_adzuna_app_key
-   ADZUNA_COUNTRY=in
-   ADZUNA_ENABLED=true
-
-   JOOBLE_API_KEY=your_jooble_key
-   JOOBLE_ENABLED=true
-
-   REMOTIVE_ENABLED=true
-   ARBEITNOW_ENABLED=true
-   ```
+4. **Job Search Aggregators (Optional for live API feeds)**:
+   * **Adzuna**: Register at [https://developer.adzuna.com](https://developer.adzuna.com) and set `ADZUNA_APP_ID` and `ADZUNA_APP_KEY`.
+   * **Jooble**: Register at [https://jooble.org/api/about](https://jooble.org/api/about) and set `JOOBLE_API_KEY`.
+   * **Remotive & Arbeitnow**: Open public APIs enabled out-of-the-box (`REMOTIVE_ENABLED=true`, `ARBEITNOW_ENABLED=true`).
 
 ---
 
-## 🐳 Quick Start: Run Everything with Docker
+## 🚀 How to Reproduce & Run Locally
 
-Once you have configured the environment files in **Step 1**, you can start all services (Redis, Backend APIs with automatic database migrations, Notifier background worker, and Frontend React SPA) with a single command:
+### Option A: Local Multi-Terminal Execution (Recommended for Development)
+
+#### 1. Start Redis
+If using local Redis via Docker:
+```bash
+docker compose up -d
+```
+*(If using a remote Redis URL like Upstash in `REDIS_URL`, this step can be skipped).*
+
+#### 2. Initialize Backend & Database
+```bash
+cd backend
+
+# Sync dependencies using uv
+uv sync
+
+# Run database migrations to create all tables
+uv run alembic upgrade head
+
+# Start FastAPI dev server (port 8000)
+uv run uvicorn app.main:app --reload --port 8000
+```
+* Backend API: [http://localhost:8000](http://localhost:8000)
+* Interactive Swagger Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
+
+#### 3. Start Frontend UI
+Open a new terminal:
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start Vite dev server (port 5173)
+npm run dev
+```
+* Frontend SPA: [http://localhost:5173](http://localhost:5173)
+
+---
+
+### Option B: Quick Start with Docker Compose
+
+Run all services (Redis, Backend APIs with automatic DB migrations, Worker streams, and Frontend SPA) in Docker:
 
 ```bash
 docker compose up --build
 ```
 
-* **Frontend**: Accessible at [http://localhost:5173](http://localhost:5173)
-* **Backend API**: Accessible at [http://localhost:8000](http://localhost:8000)
-* **API Swagger Docs**: Accessible at [http://localhost:8000/docs](http://localhost:8000/docs)
-
 ---
 
-## 🛠️ Alternative: Manual Local Execution
+## 🧪 Running Unit & Integration Tests
 
-### Step 2: Start Redis
-
-
-Start the Redis 7 container using Docker Compose:
-```bash
-docker-compose up -d
-```
-*To verify Redis is running:*
-```bash
-docker ps
-```
-*(Note: If you configured a remote `REDIS_URL` such as Upstash, you can skip starting local Redis).*
-
----
-
-### Step 3: Setup & Start the Backend
-
-1. Navigate to the `backend` directory:
-   ```bash
-   cd backend
-   ```
-2. Lock and install all dependencies into `.venv` using `uv`:
-   ```bash
-   uv sync
-   ```
-3. Run Alembic database migrations to create database tables (SQLite/PostgreSQL):
-   ```bash
-   uv run alembic upgrade head
-   ```
-4. Start the FastAPI development server *(must be run from inside `backend/`)*:
-   ```bash
-   # Make sure you are in the backend directory first
-   # cd C:\Users\samee\Music\JobLens\backend
-   uv run uvicorn app.main:app --reload --port 8000
-   ```
-*Backend API will be available at [http://localhost:8000](http://localhost:8000).*  
-*Interactive Swagger API Docs available at [http://localhost:8000/docs](http://localhost:8000/docs).*
-
----
-
-### Step 4: Setup & Start the Frontend
-
-1. Open a new terminal and navigate to the `frontend` directory:
-   ```bash
-   cd frontend
-   ```
-2. Install npm dependencies:
-   ```bash
-   npm install
-   ```
-3. Start the Vite development server:
-   ```bash
-   npm run dev
-   ```
-*Frontend application will be accessible at [http://localhost:5173](http://localhost:5173).*
-
----
-
-## 🧪 Running Unit Tests
-
-Run unit tests inside the `uv`-managed environment:
+Run the test suite inside the `uv`-managed environment:
 
 ```bash
 cd backend
 
-# Run individual test suites
+# Run individual test modules
 uv run pytest test_ingestion.py
 uv run pytest test_notifier.py
 uv run pytest test_dashboard.py
+uv run pytest test_jwt_enforcement.py
 uv run pytest test_sse.py
+
+# Run all tests
+uv run pytest
 ```
 
 ---
 
-## 📡 Key API Endpoints
+## 📡 Key API Routes
 
 | Endpoint | Method | Description |
 | :--- | :--- | :--- |
-| `POST /api/discover` | `POST` | Triggers live search against aggregators & ranks top matches |
-| `GET /api/matches` | `GET` | Returns scored job matches for the current user |
-| `POST /api/gap-report` | `POST` | Generates a structured skill gap report for a job posting |
+| `POST /api/discover` | `POST` | Triggers live job search across aggregators & ranks top matches |
+| `GET /api/matches` | `GET` | Returns scored job matches for the current authenticated user |
+| `GET /api/matches/{id}` | `GET` | Returns match details with on-demand LLM fit rationale |
+| `POST /api/gap-report` | `POST` | Generates structured skill gap report & project bridge suggestions |
 | `GET /api/dashboard` | `GET` | Returns career workspace analytics and success rates |
-| `GET /health` | `GET` | System health check (Redis, scheduler, DB status) |
+| `GET /health` | `GET` | System health check (Redis, Database, Scheduler status) |
 
 ---
 
@@ -246,20 +164,21 @@ JobLens/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py              # FastAPI application entrypoint
-│   │   ├── config.py             # Environment configuration & Settings
-│   │   ├── graphs/               # LangGraph state graph definitions
+│   │   ├── config.py             # Settings & Environment variables
+│   │   ├── graphs/               # LangGraph discovery & gap analyzer pipelines
 │   │   ├── models/               # Pydantic schemas & SQLAlchemy ORM models
 │   │   ├── repositories/         # Unit of Work & Repository pattern
 │   │   ├── routes/               # API endpoint routers
-│   │   └── services/             # Ingestion connectors, scoring, LLM router
+│   │   └── services/             # Scoring, ingestion, LLM router & skill ontology
 │   ├── alembic/                  # Database migration scripts
-│   ├── data/                     # Resume JSON, job sources & skill ontology
+│   ├── data/                     # Structured resume, postings & skill ontology
 │   ├── pyproject.toml            # UV project dependency configuration
+│   ├── .env.example              # Full documented environment template
 │   └── .env                      # Active backend environment variables
 ├── frontend/
-│   ├── src/                      # React components, pages & API services
+│   ├── src/                      # React 19 components, pages & API service client
 │   └── package.json
-├── docker-compose.yml            # Redis 7 service definition
-├── project.md                    # Project context & architecture reference
-└── README.md                     # Local setup & operational guide
+├── docker-compose.yml            # Container definition for Redis & app services
+├── project.md                    # System architecture design reference
+└── README.md                     # Setup, setup reproduction & execution guide
 ```
