@@ -31,10 +31,12 @@ export interface GapReport {
   match_score: number;
   confidence_score?: number;
   confidence_reasoning?: string;
+  is_low_confidence?: boolean;
   gaps: SkillGap[];
   overall_recommendation: string;
   overall_fit_summary?: string;
 }
+
 
 export interface GapReportRequest {
   job_description?: string;

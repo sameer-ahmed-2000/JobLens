@@ -100,9 +100,9 @@ class Settings(BaseModel):
     signup_invite_token: str = os.getenv("SIGNUP_INVITE_TOKEN", "joblens-beta-2026")
 
     # JWT Authentication Settings
-    jwt_secret_key: str = os.getenv("JWT_SECRET_KEY", "super-secret-key-change-me")
+    jwt_secret_key: str = os.getenv("JWT_SECRET_KEY", "")
     jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
-    jwt_expiration_minutes: int = int(os.getenv("JWT_EXPIRATION_MINUTES", "43200"))  # Default to 30 days
+    jwt_expiration_minutes: int = int(os.getenv("JWT_EXPIRATION_MINUTES", "10080"))  # Default to 7 days
 
     # Cloudinary and Resume upload settings
     cloudinary_cloud_name: str = os.getenv("CLOUDINARY_CLOUD_NAME", "")
@@ -150,30 +150,23 @@ object.__setattr__(
 
 def validate_jwt_secret(settings_obj=None):
     """
-    Validates JWT_SECRET_KEY security.
-    Evaluates dynamically from environment variables at execution time to support runtime environment changes.
-    Raises RuntimeError if insecure in non-development environments; logs a warning in development mode.
+    Validates JWT_SECRET_KEY security unconditionally across all environment modes.
+    Raises RuntimeError if JWT_SECRET_KEY is missing, set to default insecure fallback, or under 32 characters.
     """
     target = settings_obj or settings
-    env = os.getenv("ENVIRONMENT", target.environment).lower()
     secret = os.getenv("JWT_SECRET_KEY", target.jwt_secret_key)
     
-    if secret == "super-secret-key-change-me":
-        if env != "development":
-            raise RuntimeError(
-                "CRITICAL SECURITY FAILURE: JWT_SECRET_KEY is set to default insecure key "
-                f"('super-secret-key-change-me') in non-development environment '{env}'! Refusing to start."
-            )
-        import logging
-        logging.getLogger("app.config").warning(
-            "SECURITY WARNING: JWT_SECRET_KEY is set to default insecure key ('super-secret-key-change-me'). "
-            "Set a strong JWT_SECRET_KEY before deploying to production!"
+    if not secret or secret == "super-secret-key-change-me":
+        raise RuntimeError(
+            "CRITICAL SECURITY FAILURE: JWT_SECRET_KEY is missing or set to insecure default "
+            "('super-secret-key-change-me')! Refusing to start. Generate a secret using: "
+            'python -c "import secrets; print(secrets.token_hex(32))"'
         )
     elif len(secret) < 32:
-        import logging
-        logging.getLogger("app.config").warning(
-            f"SECURITY WARNING: JWT_SECRET_KEY is only {len(secret)} characters long. "
-            "A minimum of 32 random characters is recommended for production!"
+        raise RuntimeError(
+            f"CRITICAL SECURITY FAILURE: JWT_SECRET_KEY is only {len(secret)} characters long. "
+            "A minimum of 32 characters is required for production security!"
         )
+
 
 

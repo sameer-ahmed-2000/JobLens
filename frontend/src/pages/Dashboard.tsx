@@ -9,10 +9,16 @@ import { SearchBar } from '../components/SearchBar';
 import { FilterBar } from '../components/FilterBar';
 import { PostingList } from '../components/PostingList';
 import { GapReport } from '../components/GapReport';
+import { SparklesIcon, KeyIcon } from '../components/icons';
+
+
+import { useAuthToken } from '../hooks/useAuthToken';
 
 const Dashboard: React.FC = () => {
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
+  const token = useAuthToken();
+  const isAuthenticated = !!token;
   const [selectedPosting, setSelectedPosting] = useState<ScoredPosting | null>(null);
   const [searchText, setSearchText] = useState<string>('');
   const [filters, setFilters] = useState<FilterState>({
@@ -27,15 +33,16 @@ const Dashboard: React.FC = () => {
   const [resumeMessage, setResumeMessage] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<'matches' | 'report'>('matches');
 
-
-
   // SSE connection setup with ticket-based auth & gap backfilling
   const lastSeenTimestampRef = useRef<string>(new Date().toISOString());
   const hasConnectedOnceRef = useRef<boolean>(false);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     let eventSource: EventSource | null = null;
     let isActive = true;
+
+
 
     const connectSSE = async () => {
       try {
@@ -170,11 +177,14 @@ const Dashboard: React.FC = () => {
     error: postingsError,
     refetch: refetchPostings,
   } = useQuery({
-    queryKey: ['postings'],
+    queryKey: ['postings', token],
+
     queryFn: getRankedPostings,
+    enabled: isAuthenticated,
     staleTime: QUERY_CONFIG.staleTime,
     refetchOnWindowFocus: QUERY_CONFIG.refetchOnWindowFocus,
   });
+
 
   // Mutation to fetch match detail (triggers lazy rationale generation)
   const fetchMatchDetailMutation = useMutation<ScoredPosting, Error, string>({
@@ -326,7 +336,48 @@ const Dashboard: React.FC = () => {
     return calculateQuickStats(postings, generateReportMutation.data);
   }, [postings, generateReportMutation.data]);
 
+  if (!isAuthenticated) {
+    return (
+      <div className="max-w-4xl mx-auto py-16 px-4 text-center">
+        <div className="bg-surface border border-gray-800 rounded-3xl p-10 shadow-2xl space-y-6">
+          <div className="w-16 h-16 bg-focus-confirm/10 border border-focus-confirm/30 rounded-2xl flex items-center justify-center mx-auto text-focus-confirm shadow-inner">
+            <SparklesIcon size={36} className="animate-pulse" />
+          </div>
+          <div className="space-y-3">
+            <h2 className="text-3xl font-extrabold text-text-warm font-display tracking-tight">
+              Personalized AI Job Discovery
+            </h2>
+            <p className="text-gray-400 text-sm max-w-xl mx-auto leading-relaxed font-body">
+              JobLens uses agentic LangGraph pipelines and pgvector RAG analysis to discover, rank, and generate fit reports tailored to your experience.
+            </p>
+          </div>
+          <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <button
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: { tab: 'signin' } }));
+              }}
+              className="w-full sm:w-auto px-6 py-3 bg-focus-confirm/10 hover:bg-focus-confirm/20 text-focus-confirm border border-focus-confirm/40 rounded-xl font-bold font-mono text-sm transition-all cursor-pointer shadow-md flex items-center justify-center gap-2"
+            >
+              <KeyIcon size={16} />
+              <span>Sign In to View Matches</span>
+            </button>
+            <button
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: { tab: 'signup' } }));
+              }}
+              className="w-full sm:w-auto px-6 py-3 bg-base hover:bg-surface text-gray-300 hover:text-text-warm border border-gray-800 rounded-xl font-bold font-mono text-sm transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <SparklesIcon size={16} />
+              <span>Create Free Account</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
+
     <div className="space-y-6 pb-12">
       
       {/* Quick Stats Summary Cards (Refinement #2) */}

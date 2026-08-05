@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { XIcon, SparklesIcon, CopyIcon, DownloadIcon, KeyIcon } from './icons';
 import { signupUser, signinUser, uploadResume } from '../services/api';
 import type { SignupData } from '../services/api';
 import type { UserProfile } from '../types';
+import { setAuthToken } from '../hooks/useAuthToken';
 
 interface SignupModalProps {
   isOpen: boolean;
@@ -11,6 +11,7 @@ interface SignupModalProps {
   onSuccess: (token: string, user: UserProfile) => void;
   initialTab?: 'signup' | 'signin';
 }
+
 
 export const SignupModal: React.FC<SignupModalProps> = ({ 
   isOpen, 
@@ -99,7 +100,7 @@ export const SignupModal: React.FC<SignupModalProps> = ({
       const token = res.raw_token;
 
       // 2. Automatically store token in localStorage for immediate current-tab login
-      localStorage.setItem('joblens_auth_token', token);
+      setAuthToken(token);
 
       // 3. Upload Resume asynchronously (202 Accepted, non-blocking SSE)
       try {
@@ -137,9 +138,10 @@ export const SignupModal: React.FC<SignupModalProps> = ({
       const res = await signinUser({ email: signinEmail.trim(), password: signinPassword });
       
       // Token is valid! Store in localStorage and sign in.
-      localStorage.setItem('joblens_auth_token', res.raw_token);
+      setAuthToken(res.raw_token);
       onSuccess(res.raw_token, res.user);
       onClose();
+
     } catch (err: any) {
       console.error("Sign-in validation failed:", err);
       const msg = err.response?.data?.detail || "Invalid email or password. Please try again.";

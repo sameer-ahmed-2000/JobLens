@@ -20,8 +20,19 @@ import pytest
 @pytest.fixture(autouse=True)
 def set_test_environment(monkeypatch):
     """Ensure test suite uses in-memory SQLite database and test environment settings."""
+    test_secret = "test-jwt-secret-key-for-unit-testing-32-chars"
     monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
     monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.setenv("JWT_SECRET_KEY", test_secret)
+    from app.config import settings
+    monkeypatch.setattr(settings, "jwt_secret_key", test_secret)
+    try:
+        from app.rate_limiter import limiter
+        limiter.reset()
+    except Exception:
+        pass
+
+
 
 @pytest.fixture(autouse=True)
 def clear_llm_router_cache():

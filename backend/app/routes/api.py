@@ -7,7 +7,7 @@ from app.models.schemas import (
     ScoredPosting, GapReportRequest, GapReport, UserProfileSchema,
     UserProfileUpdateSchema, NotificationItemSchema
 )
-from app.routes.auth import get_current_user_id
+from app.routes.auth import get_current_user_id, get_current_user_payload, revoke_jti, create_jwt_token
 from app.rate_limiter import limiter
 from app.services.discovery_service import discovery_service
 from app.services.gap_service import gap_service
@@ -25,6 +25,7 @@ from app.routes.admin import get_ingestion_status, get_scheduler_status, get_dlq
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
 
 
 
@@ -238,16 +239,22 @@ class TokenRotateConfirm(BaseModel):
 @router.post("/profile/rotate-token")
 def rotate_token(
     body: TokenRotateConfirm,
-    current_user_id: str = Depends(get_current_user_id),
+    payload: dict = Depends(get_current_user_payload),
 ):
     """
-    Rotate the API token for the current user.
+    Rotate the API token for the current user. Revokes active JWT server-side.
     """
     if not body.confirm:
         raise HTTPException(
             status_code=400,
             detail='Set "confirm": true in the request body to proceed with token rotation.',
         )
+
+    current_user_id = payload["user_id"]
+    jti = payload.get("jti")
+    exp = payload.get("exp")
+    if jti and exp:
+        revoke_jti(jti, int(exp))
 
     import secrets
     import hashlib
@@ -262,11 +269,15 @@ def rotate_token(
             raise HTTPException(status_code=404, detail="User not found.")
         uow.commit()
 
-    logger.info(f"Token rotated for user {current_user_id}. Old token invalidated.")
+    new_jwt = create_jwt_token(current_user_id, payload.get("email", ""))
+
+    logger.info(f"Token rotated for user {current_user_id}. Old JWT revoked.")
 
     return {
         "message": "Token rotated successfully. Store the new token securely -- it will not be shown again.",
-        "new_token": raw_token,
+        "new_token": new_jwt,
+        "legacy_raw_token": raw_token,
     }
+
 
 

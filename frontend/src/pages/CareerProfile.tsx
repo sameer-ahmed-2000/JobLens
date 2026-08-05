@@ -14,6 +14,8 @@ import type { ResumeFile, ActiveResume } from '../services/api';
 import type { UserProfile } from '../types';
 
 
+import { useAuthToken } from '../hooks/useAuthToken';
+
 export const CareerProfile: React.FC = () => {
   const queryClient = useQueryClient();
   const [uploadProgress, setUploadProgress] = useState<'idle' | 'uploading' | 'processing' | 'complete' | 'failed'>('idle');
@@ -24,25 +26,59 @@ export const CareerProfile: React.FC = () => {
   const [dragOver, setDragOver] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
 
+  const token = useAuthToken();
+  const isAuthenticated = !!token;
+
   // Queries for user account profile, status & active resume profile
   const { data: userProfile } = useQuery<UserProfile>({
-    queryKey: ['userProfile'],
+    queryKey: ['userProfile', token],
     queryFn: getProfile,
+    enabled: isAuthenticated,
     ...QUERY_CONFIG,
     retry: false,
   });
 
   const { data: latestFile, refetch: refetchStatus } = useQuery<ResumeFile | null>({
-    queryKey: ['resumeStatus'],
+    queryKey: ['resumeStatus', token],
     queryFn: getLatestResumeStatus,
+    enabled: isAuthenticated,
     ...QUERY_CONFIG,
   });
 
   const { data: activeResume, refetch: refetchActive } = useQuery<ActiveResume | null>({
-    queryKey: ['activeResume'],
+    queryKey: ['activeResume', token],
     queryFn: getActiveResume,
+    enabled: isAuthenticated,
     ...QUERY_CONFIG,
   });
+
+
+  if (!isAuthenticated) {
+    return (
+      <div className="max-w-3xl mx-auto py-16 px-4 text-center">
+        <div className="bg-surface border border-gray-800 rounded-3xl p-10 shadow-2xl space-y-6">
+          <div className="w-16 h-16 bg-focus-confirm/10 border border-focus-confirm/30 rounded-2xl flex items-center justify-center mx-auto text-focus-confirm shadow-inner">
+            <span className="text-2xl font-bold font-mono">👤</span>
+          </div>
+          <div className="space-y-3">
+            <h2 className="text-3xl font-extrabold text-text-warm font-display tracking-tight">
+              Career & Resume Profile
+            </h2>
+            <p className="text-gray-400 text-sm max-w-md mx-auto leading-relaxed font-body">
+              Upload your resume PDF, manage skills, and configure target roles. Sign in to view and manage your profile.
+            </p>
+          </div>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: { tab: 'signin' } }))}
+            className="px-6 py-3 bg-focus-confirm/10 hover:bg-focus-confirm/20 text-focus-confirm border border-focus-confirm/40 rounded-xl font-bold font-mono text-sm transition-all cursor-pointer shadow-md inline-flex items-center gap-2"
+          >
+            <span>Sign In to Access Profile</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
 
   // Watch status changes to map uploadProgress
   useEffect(() => {

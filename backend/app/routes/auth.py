@@ -53,7 +53,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_jwt_token(user_id: str, email: str) -> str:
     """
-    Generates a signed JWT token for the given user.
+    Generates a signed JWT token for the given user, including a unique jti claim.
     """
     now = datetime.now(timezone.utc)
     expire = now + timedelta(minutes=settings.jwt_expiration_minutes)
@@ -61,16 +61,46 @@ def create_jwt_token(user_id: str, email: str) -> str:
     payload = {
         "sub": user_id,
         "email": email,
+        "jti": str(uuid.uuid4()),
         "exp": int(expire.timestamp()),
         "iat": int(now.timestamp())
     }
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
-def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+def revoke_jti(jti: str, exp_timestamp: int) -> None:
     """
-    HTTPBearer dependency resolving the client token to a user ID.
-    First attempts stateless verification via JWT decoding.
-    Expired JWTs are rejected immediately. Legacy non-JWT tokens fall back to DB lookup.
+    Revokes a JWT token by storing its jti in Redis until token expiration.
+    """
+    from app.redis_client import get_redis_client
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+    ttl = exp_timestamp - now_ts
+    if ttl > 0:
+        client = get_redis_client()
+        client.setex(f"revoked_jti:{jti}", ttl, "1")
+
+def is_jti_revoked(jti: str) -> bool:
+    """
+    Checks if a jti is in the Redis revocation store.
+    Fails closed (raises HTTP 401) if Redis experiences a connectivity/runtime error.
+    Returns False if key is absent.
+    """
+    import redis
+    from app.redis_client import get_redis_client
+    try:
+        client = get_redis_client()
+        return bool(client.exists(f"revoked_jti:{jti}"))
+    except (redis.RedisError, redis.ConnectionError, redis.TimeoutError) as e:
+        logger.error(f"Redis revocation check failed due to connectivity error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication service temporary error: unable to verify token revocation status."
+        )
+
+def get_current_user_payload(credentials: HTTPAuthorizationCredentials = Depends(security)) -> dict:
+    """
+    HTTPBearer dependency resolving client token to decoded JWT payload & user ID.
+    Performs jti revocation verification (failing closed on Redis connectivity issues).
+    Falls back to legacy token hash DB lookup for legacy non-JWT tokens.
     """
     token = credentials.credentials
     if not token:
@@ -82,12 +112,19 @@ def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(secu
     # 1. Attempt JWT validation
     try:
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+        jti = payload.get("jti")
+        if jti and is_jti_revoked(jti):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has been revoked."
+            )
         user_id = payload.get("sub")
         if user_id:
             with UnitOfWork() as uow:
                 user = uow.users.get_by_id(user_id)
                 if user:
-                    return user_id
+                    payload["user_id"] = user_id
+                    return payload
     except jwt.ExpiredSignatureError:
         logger.info("Authentication attempt with expired JWT token.")
         raise HTTPException(
@@ -103,7 +140,7 @@ def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(secu
     with UnitOfWork() as uow:
         user = uow.users.get_by_token_hash(token_hash)
         if user:
-            return user["id"]
+            return {"user_id": user["id"], "sub": user["id"], "jti": None, "exp": None, "email": user.get("email")}
 
     masked_hash = f"{token_hash[:8]}..." if token_hash else "None"
     logger.warning(f"Failed authentication attempt with token/hash prefix: {masked_hash}")
@@ -111,6 +148,25 @@ def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(secu
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid authentication token."
     )
+
+def get_current_user_id(payload: dict = Depends(get_current_user_payload)) -> str:
+    """
+    HTTPBearer dependency resolving the client token to a user ID string.
+    Delegates to get_current_user_payload so existing routes remain unchanged.
+    """
+    return payload["user_id"]
+
+@router.post("/signout")
+def signout(payload: dict = Depends(get_current_user_payload)):
+    """
+    Revokes the current JWT token server-side via Redis revocation store.
+    """
+    jti = payload.get("jti")
+    exp = payload.get("exp")
+    if jti and exp:
+        revoke_jti(jti, int(exp))
+    return {"message": "Successfully signed out. Token invalidated."}
+
 
 
 

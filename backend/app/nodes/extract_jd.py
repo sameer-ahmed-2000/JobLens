@@ -8,8 +8,11 @@ from app.nodes.normalize import get_tech_aliases
 
 logger = logging.getLogger(__name__)
 
-def extract_fallback_skills(text: str) -> List[str]:
-    """Fallback skill extraction using known tech aliases if LLM fails or is unavailable."""
+def extract_vocabulary_skills(text: str) -> List[str]:
+    """
+    Extracts skills using a predefined vocabulary list and tech alias mapping.
+    Matches canonical tech terms and known aliases against text.
+    """
     if not text:
         return []
     aliases = get_tech_aliases()
@@ -30,23 +33,34 @@ def extract_fallback_skills(text: str) -> List[str]:
             # Format nicely
             found_skills.add(term.upper() if len(term) <= 3 else term.title() if term not in ("fastapi", "langgraph", "llm", "rag", "aws", "ci/cd", "node.js", ".net") else term.upper() if term in ("llm", "rag", "aws", "sql", "ci/cd") else "Node.js" if term == "node.js" else "FastAPI" if term == "fastapi" else ".NET" if term == ".net" else "LangGraph")
             
-    # Generic heuristic pass
-    found_skills.update(_extract_near_skill_headers(text))
-            
-    return sorted(list(found_skills))
+    return list(found_skills)
 
-def _extract_near_skill_headers(text: str) -> List[str]:
+def extract_heuristic_skills(text: str) -> List[str]:
     """
     Field-agnostic-within-tech fallback: pulls comma/pipe-separated terms
-    following common resume section headers, so a stack not in the hardcoded
-    alias list still gets picked up when the LLM call fails.
+    following common section headers (e.g. Skills, Technologies), catching stacks
+    not in the hardcoded vocabulary list when LLM is unavailable.
     """
+    if not text:
+        return []
     pattern = r"(?:Skills|Technologies|Tech Stack|Proficient in)[:\-]\s*(.+)"
     matches = re.findall(pattern, text, re.IGNORECASE)
     terms = []
     for m in matches:
         terms.extend([t.strip() for t in re.split(r"[,|/]", m) if 1 < len(t.strip()) < 30])
     return terms
+
+def extract_fallback_skills(text: str) -> List[str]:
+    """
+    Combines vocabulary-based and heuristic section-based skill extraction passes
+    as a robust fallback when LLM extraction fails or is unavailable.
+    """
+    if not text:
+        return []
+    found_skills = set(extract_vocabulary_skills(text))
+    found_skills.update(extract_heuristic_skills(text))
+    return sorted(list(found_skills))
+
 
 def extract_jd_node(state: Dict[str, Any]) -> Dict[str, Any]:
     """LangGraph node to extract structured job requirements from JD text via Ollama."""

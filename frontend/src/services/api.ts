@@ -1,6 +1,6 @@
 import axios from 'axios';
-import { DEFAULT_USER_TOKEN } from '../constants/auth';
 import type { ScoredPosting, GapReport, GapReportRequest, Application, InterviewNote, DashboardMetrics, ApplicationStatus, UserProfile, NotificationItem } from '../types';
+
 
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -14,15 +14,23 @@ const apiClient = axios.create({
 
 // Axios interceptor to attach dynamic authorization bearer token from localStorage
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('joblens_auth_token') || DEFAULT_USER_TOKEN;
+  const token = localStorage.getItem('joblens_auth_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
+export const signOutApi = async (): Promise<void> => {
+  try {
+    await apiClient.post('/auth/signout');
+  } catch (err) {
+    console.warn('Sign-out API call failed:', err);
+  }
+};
 
 export const createStreamTicket = async (): Promise<string> => {
+
   const response = await apiClient.post<{ ticket: string }>('/api/stream/ticket');
   return response.data.ticket;
 };

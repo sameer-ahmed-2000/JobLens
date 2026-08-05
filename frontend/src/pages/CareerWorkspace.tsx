@@ -9,10 +9,15 @@ import { ApplicationDrawer } from '../components/ApplicationDrawer';
 import { EmptyWorkspace } from '../components/EmptyWorkspace';
 import { SparklesIcon } from '../components/icons';
 
+import { useAuthToken } from '../hooks/useAuthToken';
+
 const CareerWorkspace: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedApp, setSelectedApp] = useState<Application | null>(null);
+
+  const token = useAuthToken();
+  const isAuthenticated = !!token;
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ appId, status }: { appId: string; status: any }) =>
@@ -32,8 +37,9 @@ const CareerWorkspace: React.FC = () => {
     data: applications = [], 
     isLoading: appsLoading 
   } = useQuery({
-    queryKey: ['applications'],
+    queryKey: ['applications', token],
     queryFn: getApplications,
+    enabled: isAuthenticated,
   });
 
   // Fetch metrics
@@ -41,9 +47,39 @@ const CareerWorkspace: React.FC = () => {
     data: metrics, 
     isLoading: metricsLoading 
   } = useQuery({
-    queryKey: ['dashboard_metrics'],
+    queryKey: ['dashboard_metrics', token],
     queryFn: getDashboardMetrics,
+    enabled: isAuthenticated,
   });
+
+
+  if (!isAuthenticated) {
+    return (
+      <div className="max-w-3xl mx-auto py-16 px-4 text-center">
+        <div className="bg-surface border border-gray-800 rounded-3xl p-10 shadow-2xl space-y-6">
+          <div className="w-16 h-16 bg-focus-confirm/10 border border-focus-confirm/30 rounded-2xl flex items-center justify-center mx-auto text-focus-confirm shadow-inner">
+            <SparklesIcon size={36} className="animate-pulse" />
+          </div>
+          <div className="space-y-3">
+            <h2 className="text-3xl font-extrabold text-text-warm font-display tracking-tight">
+              Application Workspace
+            </h2>
+            <p className="text-gray-400 text-sm max-w-md mx-auto leading-relaxed">
+              Track your saved job applications, interview pipelines, and stage analytics. Please sign in to access your workspace.
+            </p>
+          </div>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('open-auth-modal', { detail: { tab: 'signin' } }))}
+            className="px-6 py-3 bg-focus-confirm/10 hover:bg-focus-confirm/20 text-focus-confirm border border-focus-confirm/40 rounded-xl font-bold font-mono text-sm transition-all cursor-pointer shadow-md inline-flex items-center gap-2"
+          >
+            <SparklesIcon size={16} />
+            <span>Sign In to Open Workspace</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
 
   if (appsLoading || metricsLoading) {
     return (

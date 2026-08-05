@@ -35,7 +35,8 @@ def seed_if_empty(uow_factory=UnitOfWork, force_reseed: bool = False) -> None:
                     user_id="default-user-id",
                     token_hash=token_hash
                 )
-                logger.info(f"Created default user with API token: {raw_token}")
+                masked_token = f"{raw_token[:4]}..." if raw_token else "None"
+                logger.info(f"Created default user with API token prefix: {masked_token}")
             else:
                 if not user.get("token_hash"):
                     user_orm = uow.session.query(UserORM).filter(UserORM.id == user["id"]).first()

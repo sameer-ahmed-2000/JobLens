@@ -4,22 +4,20 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { SparklesIcon, SettingsIcon, LogOutIcon, KeyIcon } from './icons';
 import { SignupModal } from './SignupModal';
 import { ProfileSettingsPanel } from './ProfileSettingsPanel';
-import { getProfile } from '../services/api';
-import { DEFAULT_USER_TOKEN } from '../constants/auth';
+import { getProfile, signOutApi } from '../services/api';
 import type { UserProfile } from '../types';
+
+import { useAuthToken, setAuthToken } from '../hooks/useAuthToken';
 
 export const Header: React.FC = () => {
   const queryClient = useQueryClient();
-
-  const [token, setToken] = useState(() => {
-    return localStorage.getItem('joblens_auth_token') || DEFAULT_USER_TOKEN;
-  });
+  const token = useAuthToken();
 
   const [isSignupOpen, setIsSignupOpen] = useState(false);
   const [modalInitialTab, setModalInitialTab] = useState<'signup' | 'signin'>('signup');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  const hasCustomToken = !!token && token !== DEFAULT_USER_TOKEN;
+  const hasCustomToken = !!token;
 
   // Fetch User Profile if token exists
   const { data: userProfile, isError } = useQuery<UserProfile>({
@@ -35,29 +33,39 @@ export const Header: React.FC = () => {
   useEffect(() => {
     if (isError && hasCustomToken) {
       console.warn("Session token is dead or expired. Purging localStorage and resetting to guest mode.");
-      localStorage.removeItem('joblens_auth_token');
-      setToken(DEFAULT_USER_TOKEN);
+      setAuthToken(null);
       queryClient.invalidateQueries();
     }
   }, [isError, hasCustomToken, queryClient]);
 
   const handleSignupSuccess = (newToken: string) => {
-    localStorage.setItem('joblens_auth_token', newToken);
-    setToken(newToken);
+    setAuthToken(newToken);
     queryClient.invalidateQueries();
   };
 
-  const handleSignOut = () => {
-    localStorage.removeItem('joblens_auth_token');
-    setToken(DEFAULT_USER_TOKEN);
+  const handleSignOut = async () => {
+    await signOutApi();
+    setAuthToken(null);
     queryClient.clear();
     window.location.reload();
   };
+
 
   const openAuthModal = (tab: 'signup' | 'signin') => {
     setModalInitialTab(tab);
     setIsSignupOpen(true);
   };
+
+  useEffect(() => {
+    const handleAuthEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ tab?: 'signup' | 'signin' }>;
+      openAuthModal(customEvent.detail?.tab || 'signin');
+    };
+    window.addEventListener('open-auth-modal', handleAuthEvent);
+    return () => window.removeEventListener('open-auth-modal', handleAuthEvent);
+  }, []);
+
+
 
   const getInitials = (name?: string, email?: string) => {
     if (name && name.trim()) {
